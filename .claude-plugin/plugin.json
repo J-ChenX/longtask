@@ -1,0 +1,23 @@
+{
+    "name": "orchestrating-long-tasks",
+    "version": "1.0.0",
+    "description": "Use when a task spans multiple context windows, requires consistent architecture decisions across work sessions, involves 2+ independent domains, or risks losing context between stages of a large feature",
+    "author": {
+        "name": "",
+        "url": "https://github.com/"
+    },
+    "homepage": "https://github.com//orchestrating-long-tasks",
+    "repository": "https://github.com//orchestrating-long-tasks",
+    "license": "MIT",
+    "keywords": [
+        "long-task",
+        "multi-session",
+        "context-window",
+        "architecture",
+        "documentation",
+        "agent-handoff",
+        "orchestration",
+        "expert-review",
+        "docs-as-manual"
+    ]
+}
