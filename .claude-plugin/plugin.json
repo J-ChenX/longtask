@@ -6,8 +6,8 @@
         "name": "Nix Jiang",
         "url": "https://github.com/J-ChenX"
     },
-    "homepage": "https://github.com/J-ChenX/orchestrating-long-tasks",
-    "repository": "https://github.com/J-ChenX/orchestrating-long-tasks",
+    "homepage": "https://github.com/J-ChenX/longtask",
+    "repository": "https://github.com/J-ChenX/longtask",
     "license": "MIT",
     "keywords": [
         "long-task",

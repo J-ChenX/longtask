@@ -47,19 +47,24 @@ xcopy /E /I longtask %USERPROFILE%\.claude\skills\longtask
 - 架构决策必须在各阶段保持一致
 - 任务涉及 2+ 独立领域
 - 工作可能在中途移交给全新的智能体
+- 需要为长任务前期构建文档框架
+- 任务进行中需要补充文档内容
+- 文档完整构建
 
 不触发：
 - 单次对话可完成的任务（< 3 个工作包，< 4 小时）
 
-## 集成技能
+## 内化的思维模式
 
-| 技能 | 时机 |
-|------|------|
-| `superpowers:brainstorming` | 第一阶段前（需求不明确） |
-| `superpowers:writing-plans` | 第四阶段（正式实施计划） |
-| `superpowers:subagent-driven-development` | 第四阶段（并行工作包） |
-| `superpowers:requesting-code-review` | 第五阶段（正式代码审查） |
-| `superpowers:finishing-a-development-branch` | 第五阶段批准后 |
+longtask 从以下技能中学习并内化了其核心思维模式，无需外部调用：
+
+| 来源 | 内化的思维模式 | 应用阶段 |
+|------|--------------|---------|
+| brainstorming | 单问题澄清；提出 2-3 方案含权衡；逐段呈现设计并确认；HARD-GATE——未获批准不进入实施 | 第一阶段 |
+| writing-plans | 先映射文件结构再分解任务；2-5 分钟粒度；步骤无占位符；自审三项（覆盖率、占位符、类型一致性） | 第四阶段 |
+| subagent-driven-development | 每工作包注入精准上下文而非继承历史；双阶段审查（规格合规 → 代码质量）；四状态处理（DONE / CONCERNS / NEEDS_CONTEXT / BLOCKED） | 第四阶段 |
+| requesting-code-review | 早审查、常审查；按严重性分级处理（Critical 立即修复 / Important 前进前修复 / Minor 记录） | 第五阶段 |
+| finishing-a-development-branch | 测试通过才呈现选项；给出四个结构化选项（合并/PR/保留/丢弃）；破坏性操作需显式确认 | 第五阶段 |
 
 ## 分支技能
 
@@ -74,11 +79,3 @@ xcopy /E /I longtask %USERPROFILE%\.claude\skills\longtask
 | `longtask:retrofit` | 既有项目建档 | 代码存在但无 longtask 文档 |
 
 各分支详细定义见 `skills/{name}/SKILL.md`。若不指定子技能，`longtask` 主入口自动检测项目状态后路由。
-
-## 版本历史
-
-| 版本 | 日期 | 变更 |
-|------|------|------|
-| 2.1 | 2026-05-15 | 重命名为 longtask + 状态感知路由 + 5 个场景化分支入口 |
-| 2.0 | 2026-05-15 | 五阶段工作流 + 三层模块化文档 + 预审机制 + 文档记录员 |
-| 1.0 | 2026-05-14 | 初始版本：四阶段工作流 + L1/L2 领域文档 |
