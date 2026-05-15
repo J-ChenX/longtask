@@ -1,13 +1,13 @@
 {
-    "name": "orchestrating-long-tasks",
+    "name": "longtask",
     "version": "1.0.0",
-    "description": "Use when a task spans multiple context windows, requires consistent architecture decisions across work sessions, involves 2+ independent domains, or risks losing context between stages of a large feature",
+    "description": "State-aware long-task orchestration with five-phase workflow, three-layer module docs, multi-expert review, and scenario-based entry points",
     "author": {
-        "name": "",
-        "url": "https://github.com/"
+        "name": "Nix Jiang",
+        "url": "https://github.com/J-ChenX"
     },
-    "homepage": "https://github.com//orchestrating-long-tasks",
-    "repository": "https://github.com//orchestrating-long-tasks",
+    "homepage": "https://github.com/J-ChenX/orchestrating-long-tasks",
+    "repository": "https://github.com/J-ChenX/orchestrating-long-tasks",
     "license": "MIT",
     "keywords": [
         "long-task",
@@ -19,5 +19,31 @@
         "orchestration",
         "expert-review",
         "docs-as-manual"
+    ],
+    "skills": [
+        {
+            "name": "longtask",
+            "description": "Main entry: auto-detect project state and route to the right scenario"
+        },
+        {
+            "name": "longtask:setup",
+            "description": "Bootstrap a new project: full five-phase workflow from discovery to review"
+        },
+        {
+            "name": "longtask:continue",
+            "description": "Resume interrupted work: detect current phase and pick up from recovery node"
+        },
+        {
+            "name": "longtask:review",
+            "description": "Run multi-expert review on completed implementation"
+        },
+        {
+            "name": "longtask:modify",
+            "description": "Modify existing architecture: add/remove/merge modules, update dependencies"
+        },
+        {
+            "name": "longtask:retrofit",
+            "description": "Create three-layer docs for an existing codebase that has no longtask documentation"
+        }
     ]
 }

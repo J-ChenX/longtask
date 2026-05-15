@@ -1,19 +1,69 @@
 {
-    "name": "orchestrating-long-tasks",
-    "description": "Four-phase workflow (Discovery, Documentation, Execution, Review) for tasks that span multiple context windows. Uses a docs-as-manual architecture so any agent can resume work from any point without conversation history.",
+    "name": "longtask",
+    "description": "State-aware long-task orchestration skill with six scenario-based entry points. Five-phase workflow (Discovery, Architecture Layering, Documentation, Execution, Review) for tasks that span multiple context windows. Uses three-layer module-based docs-as-manual architecture.",
     "owner": {
-        "name": "",
-        "url": "https://github.com/"
+        "name": "Nix Jiang",
+        "url": "https://github.com/J-ChenX"
     },
     "plugins": [
         {
-            "name": "orchestrating-long-tasks",
-            "description": "Long-task orchestration skill: structured domain documents (L1 index + L2 domain docs) let agents resume work across context windows. Includes multi-expert review protocol, phase gates, and mid-phase recovery.",
+            "name": "longtask",
+            "description": "Main entry point: auto-detects project state from ARCHITECTURE.md status table and routes to the appropriate scenario (setup/continue/review/modify/retrofit).",
             "version": "1.0.0",
             "source": "./",
             "author": {
-                "name": "",
-                "url": "https://github.com/"
+                "name": "Nix Jiang",
+                "url": "https://github.com/J-ChenX"
+            }
+        },
+        {
+            "name": "longtask:setup",
+            "description": "Bootstrap a brand new project through the full five-phase workflow: Discovery → Architecture Layering → Documentation → Execution → Review. Use when no docs/ARCHITECTURE.md exists.",
+            "version": "1.0.0",
+            "source": "./skills/setup/",
+            "author": {
+                "name": "Nix Jiang",
+                "url": "https://github.com/J-ChenX"
+            }
+        },
+        {
+            "name": "longtask:continue",
+            "description": "Resume work from where it was interrupted. Detects current phase from ARCHITECTURE.md status table and jumps to the appropriate recovery node.",
+            "version": "1.0.0",
+            "source": "./skills/continue/",
+            "author": {
+                "name": "Nix Jiang",
+                "url": "https://github.com/J-ChenX"
+            }
+        },
+        {
+            "name": "longtask:review",
+            "description": "Run a multi-expert independent review: Architect, Business Analyst, Security Engineer, QA Lead, and optional Domain Expert. Outdated docs = blocker (same severity as broken tests).",
+            "version": "1.0.0",
+            "source": "./skills/review/",
+            "author": {
+                "name": "Nix Jiang",
+                "url": "https://github.com/J-ChenX"
+            }
+        },
+        {
+            "name": "longtask:modify",
+            "description": "Manage architecture changes: add/remove/merge modules, adjust dependencies, change build order, update tech selections. Locates impact scope, updates skeleton and affected module docs, executes changes, runs lightweight review.",
+            "version": "1.0.0",
+            "source": "./skills/modify/",
+            "author": {
+                "name": "Nix Jiang",
+                "url": "https://github.com/J-ChenX"
+            }
+        },
+        {
+            "name": "longtask:retrofit",
+            "description": "Create three-layer documentation for an existing codebase. Scans code structure, infers module boundaries, creates ARCHITECTURE.md and module docs — skips Discovery (code IS the spec) and Execution (code already exists).",
+            "version": "1.0.0",
+            "source": "./skills/retrofit/",
+            "author": {
+                "name": "Nix Jiang",
+                "url": "https://github.com/J-ChenX"
             }
         }
     ]
