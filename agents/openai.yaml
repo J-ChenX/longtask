@@ -1,0 +1,7 @@
+interface:
+  display_name: "Longtask"
+  short_description: "Orchestrate long work across context windows"
+  default_prompt: "Use $longtask to manage this multi-session coding task with architecture docs, recovery checkpoints, and expert review."
+
+policy:
+  allow_implicit_invocation: true

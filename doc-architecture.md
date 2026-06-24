@@ -57,9 +57,13 @@
 
 ## L1：模块血肉
 
-每个模块一个目录。至少包含 `overview.md`，其余按需创建。
+**默认：单文件。** 简单模块使用 `modules/{name}.md`，内容等同于下方主文档模板。  
+**展开为目录**当以下任一条件成立时：单文件超过 300 行 / 需要独立 security.md 或 algorithm.md / 模块内部组件 ≥ 3 个。  
+展开时：将 `{name}.md` 重命名为 `{name}/README.md`，其余文件按需创建在同目录下。
 
-### `modules/{name}/overview.md` — 业务视角
+视角章节（架构、安全、算法）默认作为单文件内的 section，各节超过 100 行时再拆分为独立文件。
+
+### `modules/{name}.md`（默认）/ `modules/{name}/README.md`（展开后）— 业务视角
 
 ```markdown
 # {模块名称}
@@ -98,9 +102,10 @@
 → 实现细节见 [internals.md](internals.md)
 ```
 
-### `modules/{name}/architecture.md` — 架构视角
+### `modules/{name}/architecture.md`（或单文件内 `## 架构` section）— 架构视角
 
-**创建条件：** 模块有 3+ 内部组件或 2+ 外部依赖时创建。
+**独立文件条件：** 模块已展开为目录，且有 3+ 内部组件或 2+ 外部依赖。  
+**否则：** 作为 `{name}.md` 内的 `## 架构` section。
 
 ```markdown
 # {模块名称} — 架构
@@ -131,7 +136,7 @@ export type PaymentStatus = 'pending' | 'success' | 'failed' | 'timeout'
 | auth | HTTP POST /verify | `(token: string) => User` | 返回 401，不重试 |
 | inventory | HTTP POST /reserve | `(items: Item[]) => boolean` | 重试 3 次，失败回滚 |
 
-→ 业务规则见 [overview.md](overview.md)
+→ 业务规则见 [README.md](README.md)
 → 实现细节见 [internals.md](internals.md)
 ```
 
@@ -139,9 +144,9 @@ export type PaymentStatus = 'pending' | 'success' | 'failed' | 'timeout'
 
 ## L2：模块神经
 
-深入实现细节。仅在模块进入实现阶段时创建。
+深入实现细节。仅在模块进入实现阶段且已展开为目录时创建独立文件。若模块仍为单文件，则作为文件末尾的 section 追加。
 
-### `modules/{name}/internals.md` — 执行视角
+### `modules/{name}/internals.md`（或单文件内 `## 实现细节` section）— 执行视角
 
 ```markdown
 # {模块名称} — 实现细节
@@ -180,9 +185,10 @@ tests/payment/
 | [gateway.test.ts](src/payment/__tests__/gateway.test.ts) | 网关超时、回调乱序、签名验证 |
 ```
 
-### `modules/{name}/security.md` — 安全视角
+### `modules/{name}/security.md`（或单文件内 `## 安全` section）— 安全视角
 
-**创建条件：** 模块处理敏感数据或有权限控制时创建。
+**独立文件条件：** 模块已展开为目录，且处理敏感数据或有权限控制。  
+**否则：** 作为 `{name}.md` 内的 `## 安全` section。
 
 ```markdown
 # {模块名称} — 安全
@@ -208,9 +214,10 @@ tests/payment/
 | 金额篡改 | 服务端校验订单金额 | [service.ts:35](src/payment/service.ts#L35) |
 ```
 
-### `modules/{name}/algorithm.md` — 算法视角
+### `modules/{name}/algorithm.md`（或单文件内 `## 算法` section）— 算法视角
 
-**创建条件：** 模块包含非平凡算法（复杂度分析有价值时）才创建。若无则省略。
+**独立文件条件：** 模块已展开为目录，且包含非平凡算法。  
+**否则：** 作为 `{name}.md` 内的 `## 算法` section。若无则省略。
 
 ```markdown
 # {模块名称} — 算法
@@ -235,6 +242,22 @@ tests/payment/
 
 ## 附录
 
+### `tasks/_ACTIVE.md` — 当前任务指针
+
+```markdown
+# Active longtask
+
+task_id: {task-id}
+phase: 第一阶段/第二阶段/第三阶段/第四阶段/第五阶段/完成
+active_module: {module-name or none}
+last_checkpoint: {最近已完成的步骤}
+next_action: {下一步要做什么}
+doc_version: {N — 每次 ARCHITECTURE.md 或模块文档结构性变更时递增}
+updated_at: {YYYY-MM-DD}
+```
+
+**用途：** 多任务或跨会话恢复时，先读取 `_ACTIVE.md` 定位当前任务，再加载 `tasks/{task-id}/_INDEX.md` 和相关模块文档。`doc_version` 用于判断模块文档是否需要重新审查——与 ARCHITECTURE.md 中的 `最后更新` 日期对比，若 `doc_version` 落后则表示恢复前需先同步文档。
+
 ### `appendix/global-concerns.md` — 跨模块全局关注点
 
 ```markdown
@@ -256,19 +279,68 @@ tests/payment/
 
 ---
 
+## 文档延续协议
+
+**核心原则：延续优先于新建。** 80% 的文档操作是在已有文档上追加或更新，不是从头创建。
+
+### 操作优先级
+
+任何新工作开始前，先搜索已有文档。按以下优先级操作：
+
+| 优先级 | 操作 | 触发条件 |
+|--------|------|---------|
+| 1 | 更新代码指针 | 文件移动、行号漂移、函数重命名（签名不变） |
+| 2 | 更新已有 section | 接口签名变更、行为变更、规则修改 |
+| 3 | 追加到已有 section | 新增接口、新增组件、新增规则 |
+| 4 | 在已有文档内新增 section | 模块需要新视角（如新增安全需求） |
+| 5 | 展开单文件为目录 | 单文件超过 300 行，或需要 2+ 独立视角文件 |
+| 6 | 新建模块文档 | 仅当 ARCHITECTURE.md 中无对应模块时 |
+
+### 追加规则
+
+在已有 section 末尾追加，直接添加到对应表格最后一行：
+
+- 新增接口 → 追加到「对外接口摘要」表格
+- 新增组件 → 追加到「内部组件」表格
+- 新增规则 → 追加到「业务规则」表格
+- 新增流程步骤 → 追加到「核心流程」表格
+
+### 不要新建文档的情形
+
+| 变更 | 正确做法 |
+|------|---------|
+| 模块新增一个接口 | 追加到已有模块文档的接口摘要表 |
+| 模块新增一个组件 | 追加到已有模块文档的内部组件表 |
+| 修改一条业务规则 | 更新已有模块文档对应行的描述和代码指针 |
+| 模块新增安全需求 | 在已有模块文档末尾追加 `## 安全` section |
+| 修复 bug 改变行为 | 更新已有模块文档中对应流程步骤的描述 |
+
+### 展开单文件为目录
+
+当模块单文件超过 300 行时：
+1. 创建 `modules/{name}/` 目录
+2. 将 `modules/{name}.md` 重命名为 `modules/{name}/README.md`
+3. 将超过 100 行的 section 拆分为独立文件（architecture.md、security.md 等）
+4. 在 README.md 中用 MD 引用替代被拆出的 section：`→ 详见 [architecture.md](architecture.md)`
+5. 更新 ARCHITECTURE.md 中模块的文档链接
+
+---
+
 ## 文档生命周期规则
 
 **第二阶段（架构分层）产出：**
 - 创建 `ARCHITECTURE.md`：项目概述、模块清单（骨架状态标记）、构建顺序、全局选型
 
 **第三阶段（文档化）产出：**
-- 每个模块创建 `overview.md`（必须）和 `architecture.md`（按需）
+- 每个模块创建 `modules/{name}.md`（单文件，默认）
+- 若模块已达到展开条件，创建 `modules/{name}/README.md` + 按需创建其余文件
 - 更新 `ARCHITECTURE.md` 中模块的血肉状态
 - 标记为 `[计划中 — 代码尚未存在]` 的章节为待完成项
 
 **第四阶段（执行）产出：**
-- 每个工作包完成后，创建/更新对应模块的 `internals.md`、`security.md` 等
+- 每个工作包完成后，**追加或更新**对应模块文档中的 section
 - 用真实代码指针替换 `[计划中]` 占位符
+- 单文件超过 300 行时执行展开流程
 - 更新 `ARCHITECTURE.md` 中模块的神经状态
 
 **第五阶段（审查）：**
@@ -277,9 +349,9 @@ tests/payment/
 - 残留 `[计划中]` = 阻断
 
 **模块移除时：**
-- 删除模块目录，从 `ARCHITECTURE.md` 模块清单中移除
+- 删除模块文件（或目录），从 `ARCHITECTURE.md` 模块清单中移除
 - 更新依赖该模块的其他模块文档
 
 **视角文档增减：**
 - 不需要的视角不创建
-- 执行过程中需要新视角时随时创建
+- 执行过程中需要新视角时：优先在已有文件内追加 section，超过 100 行再拆分为独立文件

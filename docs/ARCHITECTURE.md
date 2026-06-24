@@ -1,10 +1,10 @@
 # longtask — 架构全景
 
-**最后更新：** 2026-05-15
+**最后更新：** 2026-06-24
 
 ## 项目概述
 
-一个 Claude Code 技能，用于编排跨多个上下文窗口的长任务。核心理念：**文档即记忆**——结构化的领域文档让任何 AI 智能体都能从任意节点恢复工作，无需依赖对话历史。采用五阶段工作流 + 三层模块化文档体系 + 多专家审查协议 + Agent 预审机制 + 6 个场景化入口分支。
+一个 Claude Code / Codex 双平台技能，用于编排跨多个上下文窗口的长任务。核心理念：**文档即记忆**——结构化的领域文档让任何 AI 智能体都能从任意节点恢复工作，无需依赖对话历史。采用五阶段工作流 + 渐进式文档架构（单文件→目录展开）+ 多专家审查协议 + 预审机制 + 变更影响分级 + 文档延续协议 + 1 个主入口和 5 个场景化子技能。
 
 ## 模块地图
 
@@ -37,10 +37,10 @@
 
 | 模块 | 职责 | 依赖 | 骨架 | 血肉 | 神经 | 文档 |
 |------|------|------|------|------|------|------|
-| workflow | 五阶段工作流、阶段门控、恢复节点、预审机制、状态检测路由 | document-architecture, expert-system | ✅ | 🔄 | ⬜ | [→](modules/workflow/) |
-| document-architecture | 三层文档模板、视角分离、文档生命周期 | — | ✅ | 🔄 | ⬜ | [→](modules/document-architecture/) |
-| expert-system | 专家角色、审查协议、预审 Agent、文档记录员 | — | ✅ | 🔄 | ⬜ | [→](modules/expert-system/) |
-| sub-skills | 5 个场景化入口分支（setup/continue/review/modify/retrofit） | workflow | ✅ | 🔄 | ⬜ | [→](../../skills/) |
+| workflow | 五阶段工作流、阶段门控、恢复节点、预审机制、状态检测路由、变更影响分级、平台适配 | document-architecture, expert-system | ✅ | ✅ | ✅ | [→](modules/workflow/) |
+| document-architecture | 渐进式文档架构（单文件→目录展开）、文档延续协议、文档生命周期 | — | ✅ | ✅ | ✅ | [→](modules/document-architecture/) |
+| expert-system | 专家角色、审查协议、预审步骤（多平台适配）、文档记录员 | — | ✅ | ✅ | ✅ | [→](modules/expert-system/) |
+| sub-skills | 5 个场景化入口分支（setup/continue/review/modify/retrofit） | workflow | ✅ | ✅ | ✅ | [→](../../skills/) |
 
 状态标记：⬜ 待开始 | 🔄 进行中 | ✅ 已完成
 
@@ -59,15 +59,18 @@ document-architecture 和 expert-system 可并行构建。
 | 格式 | Markdown | LLM 原生可读，人类可读 |
 | 图表 | Mermaid / Dot | 纯文本，无需外部工具 |
 | 版本控制 | Git | 标准工具 |
-| 分发 | Claude Code Plugin | 原生集成 |
+| 分发 | Claude Code Plugin / Codex Agents | 双平台原生集成 |
 
 ## 全局设计哲学
 
 - **文档即记忆：** 文档弥补跨会话无持久上下文的不足
 - **代码优先真相：** 文档与代码冲突时，更新文档
 - **全局先于局部：** 先建骨架再填血肉
+- **延续优先于新建：** 80% 的文档操作是追加或更新，不是新建
+- **渐进式展开：** 单文件→目录，按需升级结构复杂度
 - **预审先于确认：** 重要文档在用户看到前先经独立审查
-- **模块为主，视角为辅：** 文档按模块组织，模块内按视角分文档
+- **模块为主，视角为辅：** 文档按模块组织，模块内按视角分 section 或文件
+- **变更分级响应：** L0 无需更新 / L1 替换指针 / L2 更新签名 / L3 追加条目 / L4 完整 modify
 
 ## 附录
 

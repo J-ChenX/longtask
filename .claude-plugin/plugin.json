@@ -26,23 +26,23 @@
             "description": "Main entry: auto-detect project state and route to the right scenario"
         },
         {
-            "name": "longtask:setup",
+            "name": "longtask-setup",
             "description": "Bootstrap a new project: full five-phase workflow from discovery to review"
         },
         {
-            "name": "longtask:continue",
+            "name": "longtask-continue",
             "description": "Resume interrupted work: detect current phase and pick up from recovery node"
         },
         {
-            "name": "longtask:review",
+            "name": "longtask-review",
             "description": "Run multi-expert review on completed implementation"
         },
         {
-            "name": "longtask:modify",
+            "name": "longtask-modify",
             "description": "Modify existing architecture: add/remove/merge modules, update dependencies"
         },
         {
-            "name": "longtask:retrofit",
+            "name": "longtask-retrofit",
             "description": "Create three-layer docs for an existing codebase that has no longtask documentation"
         }
     ]

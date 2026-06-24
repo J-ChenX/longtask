@@ -1,5 +1,5 @@
 ---
-name: review
+name: longtask-review
 description: Use when all implementation is complete and you need a multi-expert review — or when you explicitly want to review existing code and docs
 ---
 
@@ -12,7 +12,7 @@ description: Use when all implementation is complete and you need a multi-expert
 
 启动多专家独立审查，检查代码正确性、文档同步性、架构完整性、安全性和业务规则。
 
-**开始时声明：** "我正在使用 longtask:review 来执行多专家审查。"
+**开始时声明：** "我正在使用 longtask-review 来执行多专家审查。"
 
 ## 入口
 

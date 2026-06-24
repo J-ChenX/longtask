@@ -1,6 +1,6 @@
 {
     "name": "longtask",
-    "description": "State-aware long-task orchestration skill with six scenario-based entry points. Five-phase workflow (Discovery, Architecture Layering, Documentation, Execution, Review) for tasks that span multiple context windows. Uses three-layer module-based docs-as-manual architecture.",
+    "description": "State-aware long-task orchestration skill with one main entry point and five scenario subskills. Five-phase workflow (Discovery, Architecture Layering, Documentation, Execution, Review) for tasks that span multiple context windows. Uses three-layer module-based docs-as-manual architecture.",
     "owner": {
         "name": "Nix Jiang",
         "url": "https://github.com/J-ChenX"
@@ -17,7 +17,7 @@
             }
         },
         {
-            "name": "longtask:setup",
+            "name": "longtask-setup",
             "description": "Bootstrap a brand new project through the full five-phase workflow: Discovery → Architecture Layering → Documentation → Execution → Review. Use when no docs/ARCHITECTURE.md exists.",
             "version": "1.0.0",
             "source": "./skills/setup/",
@@ -27,7 +27,7 @@
             }
         },
         {
-            "name": "longtask:continue",
+            "name": "longtask-continue",
             "description": "Resume work from where it was interrupted. Detects current phase from ARCHITECTURE.md status table and jumps to the appropriate recovery node.",
             "version": "1.0.0",
             "source": "./skills/continue/",
@@ -37,7 +37,7 @@
             }
         },
         {
-            "name": "longtask:review",
+            "name": "longtask-review",
             "description": "Run a multi-expert independent review: Architect, Business Analyst, Security Engineer, QA Lead, and optional Domain Expert. Outdated docs = blocker (same severity as broken tests).",
             "version": "1.0.0",
             "source": "./skills/review/",
@@ -47,7 +47,7 @@
             }
         },
         {
-            "name": "longtask:modify",
+            "name": "longtask-modify",
             "description": "Manage architecture changes: add/remove/merge modules, adjust dependencies, change build order, update tech selections. Locates impact scope, updates skeleton and affected module docs, executes changes, runs lightweight review.",
             "version": "1.0.0",
             "source": "./skills/modify/",
@@ -57,7 +57,7 @@
             }
         },
         {
-            "name": "longtask:retrofit",
+            "name": "longtask-retrofit",
             "description": "Create three-layer documentation for an existing codebase. Scans code structure, infers module boundaries, creates ARCHITECTURE.md and module docs — skips Discovery (code IS the spec) and Execution (code already exists).",
             "version": "1.0.0",
             "source": "./skills/retrofit/",

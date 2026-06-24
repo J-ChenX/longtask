@@ -1,5 +1,5 @@
 ---
-name: modify
+name: longtask-modify
 description: Use when modifying an existing project's architecture — adding/removing/merging modules, changing build order, updating tech selections, or fixing issues found during review
 ---
 
@@ -12,7 +12,7 @@ description: Use when modifying an existing project's architecture — adding/re
 
 定位变更影响范围，更新骨架文档，同步受影响的模块文档，执行变更，审查结果。不是线性走第一至五阶段——只更新受影响的部分。
 
-**开始时声明：** "我正在使用 longtask:modify 来管理架构变更。"
+**开始时声明：** "我正在使用 longtask-modify 来管理架构变更。"
 
 ## 触发条件
 
@@ -28,7 +28,7 @@ description: Use when modifying an existing project's architecture — adding/re
 
 1. 加载 `docs/ARCHITECTURE.md`
 2. 分析变更请求，在模块地图上标注影响的模块
-3. 列出受影响文档清单（ARCHITECTURE.md + 受影响模块的 overview/architecture/internals）
+3. 列出受影响文档清单（ARCHITECTURE.md + 受影响模块主文档/architecture/internals）
 4. 向用户报告影响范围，确认后执行
 
 ### 第二步：更新骨架
@@ -42,7 +42,7 @@ description: Use when modifying an existing project's architecture — adding/re
 
 ### 第三步：同步模块文档
 
-1. 逐一更新受影响模块的 overview.md 和 architecture.md
+1. 逐一更新受影响模块的单文件文档或 README.md，以及按需存在的 architecture.md
 2. 新增模块按第三阶段流程创建文档
 3. 删除模块时移除对应目录和所有交叉引用
 

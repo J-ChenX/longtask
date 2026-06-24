@@ -1,5 +1,5 @@
 ---
-name: retrofit
+name: longtask-retrofit
 description: Use when an existing codebase has no longtask documentation and you want to create the three-layer doc system from the code itself
 ---
 
@@ -12,7 +12,7 @@ description: Use when an existing codebase has no longtask documentation and you
 
 从既有代码出发，逆向分析项目结构，推断模块边界，创建三层文档体系。与 `setup` 的关键区别：**跳过第一阶段发现**（代码已经定义了"是什么"），**跳过第四阶段执行**（代码已存在）。
 
-**开始时声明：** "我正在使用 longtask:retrofit 为既有项目建立文档。"
+**开始时声明：** "我正在使用 longtask-retrofit 为既有项目建立文档。"
 
 ## 建档流程
 
@@ -39,7 +39,7 @@ description: Use when an existing codebase has no longtask documentation and you
 
 ### 第四步：创建模块文档
 
-为每个模块创建 `docs/modules/{module}/overview.md`（必须）：
+为每个模块创建 `docs/modules/{module}.md`（默认单文件）或 `docs/modules/{module}/README.md`（展开目录）：
 - 职责：从代码中推导该模块做什么
 - 核心流程：从入口函数/路由分析主要流程
 - 业务规则：从代码逻辑中提取验证条件和不变量
@@ -57,7 +57,7 @@ description: Use when an existing codebase has no longtask documentation and you
 
 - 不修改代码（这是修改和优化的起点，不是重构）
 - 不向用户提问需求（代码已经是需求的实现）
-- 不执行第五阶段完整审查（可以后续用 `longtask:review` 触发）
+- 不执行第五阶段完整审查（可以后续用 `longtask-review` 触发）
 
 ## 支撑文件
 
