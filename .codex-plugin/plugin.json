@@ -1,0 +1,39 @@
+{
+  "name": "longtask",
+  "version": "3.0.0",
+  "description": "面向 Codex 个人使用的可恢复、可审查跨会话编码编排",
+  "author": {
+    "name": "Nix Jiang",
+    "url": "https://github.com/J-ChenX"
+  },
+  "homepage": "https://github.com/J-ChenX/longtask",
+  "repository": "https://github.com/J-ChenX/longtask",
+  "license": "MIT",
+  "keywords": [
+    "long-task",
+    "multi-session",
+    "state-machine",
+    "agent-handoff",
+    "evidence"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Longtask",
+    "shortDescription": "可恢复、可审查的跨会话编码编排",
+    "longDescription": "在 Codex 中用版本绑定状态、工作包、批准和独立审查，安全推进跨多个上下文或会话的大型编码任务。",
+    "developerName": "Nix Jiang",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Multi-session orchestration"
+    ],
+    "websiteURL": "https://github.com/J-ChenX/longtask",
+    "defaultPrompt": [
+      "用 longtask 安全规划并推进这个大型编码任务。",
+      "恢复当前 longtask，并验证状态后继续。",
+      "独立审查当前实现和完成证据。"
+    ],
+    "brandColor": "#2563EB"
+  }
+}

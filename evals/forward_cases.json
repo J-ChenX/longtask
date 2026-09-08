@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "project_content_convergence",
+      "test": "test_finished_work_keeps_project_content_and_discards_execution_records"
+    },
+    {
+      "id": "unmerged_or_stale_project_content",
+      "test": "test_finish_rejects_unmerged_or_changed_project_content"
+    },
+    {
+      "id": "manual_failure_requires_new_acceptance",
+      "test": "test_manual_failure_retry_cannot_reuse_pre_failure_acceptance"
+    },
+    {
+      "id": "single_checkpoint_replacement",
+      "test": "test_replacement_resets_single_checkpoint_without_retaining_history"
+    },
+    {
+      "id": "parallel_sequential_delivery_recovery",
+      "test": "test_parallel_delivery_recovers_failure_and_completes_each_owned_change"
+    },
+    {
+      "id": "completed_peer_tamper_rejection",
+      "test": "test_completed_parallel_peer_cannot_hide_later_tampering"
+    },
+    {
+      "id": "blocked_goal_replacement",
+      "test": "test_goal_change_clears_scope_blockers_without_erasing_old_contracts"
+    },
+    {
+      "id": "setup_scope_change",
+      "test": "test_setup_initializes_then_revises_scope_safely"
+    },
+    {
+      "id": "retrofit_no_git",
+      "test": "test_retrofit_works_without_git_or_prior_state"
+    },
+    {
+      "id": "handoff_recovery",
+      "test": "test_handoff_recovers_exact_checkpoint"
+    },
+    {
+      "id": "architecture_change_during_execution",
+      "test": "test_execution_architecture_change_reopens_architecture"
+    },
+    {
+      "id": "parallel_conflict",
+      "test": "test_parallel_writers_accept_disjoint_sets_and_reject_conflict"
+    },
+    {
+      "id": "user_rejection",
+      "test": "test_failed_review_and_user_rejection_remain_open"
+    },
+    {
+      "id": "stale_documentation",
+      "test": "test_content_change_supersedes_review_and_approval"
+    },
+    {
+      "id": "failed_acceptance",
+      "test": "test_later_failed_acceptance_check_blocks_package_completion"
+    },
+    {
+      "id": "noncurrent_schema_rejection",
+      "test": "test_noncurrent_state_schema_is_rejected"
+    },
+    {
+      "id": "degraded_host",
+      "test": "test_degraded_host_without_git_hooks_subagents_or_worktrees"
+    },
+    {
+      "id": "contract_change_reopens_package",
+      "test": "test_contract_change_reopens_completed_package"
+    },
+    {
+      "id": "post_completion_failure",
+      "test": "test_post_completion_failure_is_durable"
+    },
+    {
+      "id": "missing_event_history",
+      "test": "test_missing_event_history_blocks_recovery"
+    },
+    {
+      "id": "superseded_prerequisite",
+      "test": "test_superseded_prerequisite_does_not_unlock_work"
+    },
+    {
+      "id": "high_risk_review_quorum",
+      "test": "test_high_risk_completion_requires_two_review_roles"
+    },
+    {
+      "id": "immutable_package_base",
+      "test": "test_active_package_keeps_execution_base_and_records_result_evidence"
+    },
+    {
+      "id": "review_coverage_gap",
+      "test": "test_review_with_coverage_gap_cannot_be_recorded_as_passing"
+    },
+    {
+      "id": "review_exit_evidence",
+      "test": "test_review_exit_evidence_is_required_for_completion"
+    },
+    {
+      "id": "event_hardlink_boundary",
+      "test": "test_event_hardlink_cannot_write_outside_workspace"
+    },
+    {
+      "id": "write_set_scope_drift",
+      "test": "test_out_of_scope_change_blocks_package_until_it_is_superseded"
+    },
+    {
+      "id": "parallel_after_drift",
+      "test": "test_parallel_work_cannot_start_after_first_writer_changes_its_scope"
+    },
+    {
+      "id": "directory_descendant_hardlink",
+      "test": "test_directory_write_sets_reject_descendant_hardlink_aliases"
+    },
+    {
+      "id": "directory_descendant_symlink_escape",
+      "test": "test_directory_write_set_rejects_late_descendant_symlink_escape"
+    },
+    {
+      "id": "directory_file_symlink_alias",
+      "test": "test_directory_write_set_rejects_file_symlink_aliases"
+    },
+    {
+      "id": "directory_external_hardlink",
+      "test": "test_directory_write_set_rejects_external_hardlink_inode"
+    },
+    {
+      "id": "directory_symlink_loop",
+      "test": "test_directory_write_set_symlink_loop_returns_structured_rejection"
+    },
+    {
+      "id": "executable_cli_tutorial",
+      "test": "test_executable_tutorial_preserves_knowledge_and_cleans_checkpoint"
+    },
+    {
+      "id": "early_incremental_planning_checkpoint",
+      "test": "test_planning_checkpoint_precedes_documents_and_stays_recoverable"
+    }
+  ]
+}

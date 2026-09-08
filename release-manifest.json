@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "package": "longtask",
+  "version": "3.0.0",
+  "archive_root": "longtask",
+  "files": [
+    ".gitattributes",
+    ".gitignore",
+    "AGENTS.md",
+    "LICENSE",
+    "README.md",
+    "SKILL.md",
+    "release-manifest.json",
+    "专家审查协议.md",
+    "文档架构.md"
+  ],
+  "directories": [
+    ".codex-plugin",
+    "docs/modules",
+    "evals",
+    "references",
+    "scripts",
+    "skills",
+    "tests"
+  ],
+  "exclude_paths": [
+    "evals/host_results.json",
+    "evals/invocation_results.json",
+    "evals/forward_results.json",
+    "docs/tasks"
+  ],
+  "exclude_names": [
+    ".DS_Store",
+    "__pycache__",
+    ".longtask",
+    "dist"
+  ],
+  "exclude_suffixes": [
+    ".pyc",
+    ".pyo"
+  ]
+}

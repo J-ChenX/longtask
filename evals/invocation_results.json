@@ -1,0 +1,211 @@
+{
+  "schema_version": 3,
+  "evaluation": {
+    "method": "Blind prompt-only classification against current skill entry contracts",
+    "evaluator": "independent planning_blind_invocation subagent, metadata-only blind classification",
+    "evaluated_at": "2026-09-07T09:14:29.873374+00:00",
+    "assurance": "unattested_classification",
+    "model": "unrecorded",
+    "harness": "Fresh independent metadata-only classification; expected labels withheld",
+    "repetitions": 1,
+    "trace_available": false,
+    "trace_id": null
+  },
+  "inputs": {
+    "corpus_sha256": "ea61604a72769431b1a7060d22f559294ee7316f613dffbebf5cd52a1bd02f19",
+    "discovery_surface_sha256": "ff1a73f9f06ed677be8a4af802219a5ecf6c8f57adf44b8f1f1b6a4c5a8fff64",
+    "runner_sha256": "7c17580414c777ca17880a04c4b55ff30de3752f639338c7d7f8072bbb2a2608"
+  },
+  "results": [
+    {
+      "id": "new_multi_session_product",
+      "selected": true,
+      "entry": "setup"
+    },
+    {
+      "id": "existing_code_no_docs",
+      "selected": true,
+      "entry": "retrofit"
+    },
+    {
+      "id": "resume_after_compaction",
+      "selected": true,
+      "entry": "continue"
+    },
+    {
+      "id": "architecture_migration",
+      "selected": true,
+      "entry": "modify"
+    },
+    {
+      "id": "independent_final_review",
+      "selected": true,
+      "entry": "review"
+    },
+    {
+      "id": "complex_existing_program",
+      "selected": true,
+      "entry": "retrofit"
+    },
+    {
+      "id": "cross_session_security_rework",
+      "selected": true,
+      "entry": "modify"
+    },
+    {
+      "id": "explicit_small_longtask",
+      "selected": true,
+      "entry": "setup"
+    },
+    {
+      "id": "documented_without_v3_state",
+      "selected": true,
+      "entry": "continue"
+    },
+    {
+      "id": "explicit_small_existing_longtask",
+      "selected": true,
+      "entry": "retrofit"
+    },
+    {
+      "id": "review_across_handoff",
+      "selected": true,
+      "entry": "review"
+    },
+    {
+      "id": "interrupted_non_longtask_codebase",
+      "selected": true,
+      "entry": "retrofit"
+    },
+    {
+      "id": "implicit_large_greenfield",
+      "selected": true,
+      "entry": "setup"
+    },
+    {
+      "id": "active_workflow_redesign",
+      "selected": true,
+      "entry": "modify"
+    },
+    {
+      "id": "single_typo",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "explain_function",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "small_patch_review",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "one_unit_test",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "summarize_log",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "git_status",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "small_refactor",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "general_advice",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "parallel_single_session_inspection",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "planning_only",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "large_repo_local_fix",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "resume_small_chat_task",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "single_session_endpoint",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "bounded_module_review",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "zh_new_cross_session_project",
+      "selected": true,
+      "entry": "setup"
+    },
+    {
+      "id": "zh_existing_without_architecture",
+      "selected": true,
+      "entry": "retrofit"
+    },
+    {
+      "id": "zh_resume_checkpoint",
+      "selected": true,
+      "entry": "continue"
+    },
+    {
+      "id": "zh_change_active_architecture",
+      "selected": true,
+      "entry": "modify"
+    },
+    {
+      "id": "zh_independent_longtask_review",
+      "selected": true,
+      "entry": "review"
+    },
+    {
+      "id": "zh_fix_typo",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "zh_explain_function",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "zh_one_test",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "zh_status_only",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "zh_bounded_review",
+      "selected": false,
+      "entry": null
+    }
+  ]
+}

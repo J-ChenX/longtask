@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/J-ChenX/longtask/main/references/state.schema.json",
+  "title": "Longtask v3 transient project checkpoint",
+  "description": "Singleton .longtask/state.json for unfinished work only. Finish merges knowledge into project content and removes checkpoint and journal; task_id is a fresh runtime-minted CAS generation identity, never an archive path.",
+  "$defs": {
+    "workspaceManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_digest", "files"],
+      "properties": {
+        "artifact_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "files": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)(?!.*//).+$"
+          },
+          "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "actor": {
+      "type": "string", "minLength": 1, "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$"
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind", "summary", "result", "command", "check_id", "details",
+        "artifact_digest", "evidence_epoch", "actor", "recorded_at"
+      ],
+      "properties": {
+        "kind": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1},
+        "result": {"enum": ["pass", "fail"]},
+        "command": {"type": ["string", "null"]},
+        "check_id": {"type": ["string", "null"], "minLength": 1},
+        "details": {
+          "type": ["object", "null"],
+          "description": "Same-artifact global verification recovery requires an independent retry with recovery_observation, followed by a fresh review. Product review findings still require a changed artifact.",
+          "properties": {"recovery_observation": {"type": "string", "pattern": "\\S"}}
+        },
+        "artifact_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "evidence_epoch": {"type": "integer", "minimum": 0},
+        "actor": {"$ref": "#/$defs/actor"},
+        "recorded_at": {"type": "string", "format": "date-time"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "review"}}, "required": ["kind"]},
+          "then": {
+            "properties": {
+              "details": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "reviewer", "role", "scope", "base_revision", "artifact_digest",
+                  "status", "findings", "evidence", "coverage_gaps", "assumptions",
+                  "task_id", "evidence_epoch", "head_commit"
+                ],
+                "properties": {
+                  "reviewer": {"$ref": "#/$defs/actor"},
+                  "task_id": {"type": "string", "pattern": "^(?!.*\\.\\.)[a-z0-9][a-z0-9._-]{0,63}$"},
+                  "evidence_epoch": {"type": "integer", "minimum": 0},
+                  "head_commit": {"type": ["string", "null"], "minLength": 1},
+                  "role": {"type": "string", "minLength": 1},
+                  "scope": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+                  "covered_package_ids": {
+                    "description": "Required by the runtime for passing review evidence bound to the current artifact digest and evidence epoch; optional here so stale historical evidence remains readable.",
+                    "type": "array", "uniqueItems": true,
+                    "items": {"type": "string", "minLength": 1}
+                  },
+                  "base_revision": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$",
+                    "description": "The artifact snapshot frozen when review starts; runtime requires it to equal artifact_digest."
+                  },
+                  "artifact_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+                  "status": {"enum": ["approved", "changes_required", "unable_to_verify"]},
+                  "findings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id", "severity", "claim", "impact", "evidence", "affected_requirement",
+                        "recommended_correction", "reproducible"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {"type": "string", "minLength": 1},
+                        "severity": {
+                          "enum": ["blocker", "stale_documentation", "warning", "suggestion", "unable_to_verify"]
+                        },
+                        "claim": {"type": "string", "minLength": 1},
+                        "impact": {"type": "string", "minLength": 1},
+                        "evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+                        "affected_requirement": {"type": "string", "minLength": 1},
+                        "recommended_correction": {"type": "string", "minLength": 1},
+                        "reproducible": {"type": "boolean"}
+                      }
+                    }
+                  },
+                  "evidence": {"type": "array", "items": {"type": "string", "minLength": 1}},
+                  "coverage_gaps": {"type": "array", "items": {"type": "string", "minLength": 1}},
+                  "assumptions": {"type": "array", "items": {"type": "string", "minLength": 1}}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"kind": {"const": "review"}, "result": {"const": "pass"}},
+            "required": ["kind", "result"]
+          },
+          "then": {
+            "properties": {
+              "details": {
+                "properties": {
+                  "status": {"const": "approved"},
+                  "coverage_gaps": {"maxItems": 0},
+                  "findings": {
+                    "items": {
+                      "not": {
+                        "properties": {
+                          "severity": {"enum": ["blocker", "stale_documentation", "unable_to_verify"]}
+                        },
+                        "required": ["severity"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"kind": {"const": "review"}, "result": {"const": "fail"}},
+            "required": ["kind", "result"]
+          },
+          "then": {
+            "properties": {
+              "details": {
+                "properties": {
+                  "status": {"not": {"const": "approved"}},
+                  "findings": {"minItems": 1}
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "summary", "actor", "created_at", "opened_digest", "opened_revision"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1},
+        "actor": {"$ref": "#/$defs/actor"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "opened_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "opened_revision": {"type": "integer", "minimum": 0}
+      }
+    },
+    "resolved_blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "summary", "actor", "created_at", "opened_digest", "opened_revision", "resolved_by", "resolved_at",
+        "resolution_digest", "verification_actor"
+      ],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1},
+        "actor": {"$ref": "#/$defs/actor"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "opened_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "opened_revision": {"type": "integer", "minimum": 0},
+        "resolved_by": {"$ref": "#/$defs/actor"},
+        "resolved_at": {"type": "string", "format": "date-time"},
+        "resolution_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "verification_actor": {"$ref": "#/$defs/actor"}
+      }
+    },
+    "handoff_branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intent", "objective"],
+      "properties": {
+        "intent": {"enum": ["plan", "document", "execute", "review", "remediate", "verify", "decide", "complete"]},
+        "objective": {"type": "string", "minLength": 1}
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intent", "objective", "reason", "target", "required_inputs", "acceptance_checks",
+        "next_if_pass", "next_if_fail", "artifact_digest", "head_commit", "evidence_epoch",
+        "created_revision", "created_by", "created_at"
+      ],
+      "properties": {
+        "intent": {"enum": ["plan", "document", "execute", "review", "remediate", "verify", "decide", "complete"]},
+        "objective": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "ref"],
+          "properties": {
+            "kind": {"enum": ["task", "work_package", "artifact", "review_findings", "decision"]},
+            "ref": {"type": "string", "minLength": 1}
+          }
+        },
+        "required_inputs": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "acceptance_checks": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "next_if_pass": {"$ref": "#/$defs/handoff_branch"},
+        "next_if_fail": {"$ref": "#/$defs/handoff_branch"},
+        "artifact_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "head_commit": {"type": ["string", "null"], "minLength": 1},
+        "evidence_epoch": {"type": "integer", "minimum": 0},
+        "created_revision": {"type": "integer", "minimum": 0},
+        "created_by": {"$ref": "#/$defs/actor"},
+        "created_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "skill_version", "task_id", "mode", "approval_policy", "phase", "status",
+    "revision", "event_revision", "evidence_epoch", "goal", "base_commit", "head_commit", "artifact_digest",
+    "approved_digest", "approval", "review", "work_packages", "validation_evidence", "blockers",
+    "resolved_blockers", "handoff", "next_action", "updated_at"
+  ],
+  "properties": {
+    "schema_version": {"const": 3},
+    "skill_version": {"type": "string", "const": "3.0.0"},
+    "task_id": {"description": "Runtime-minted generation identity: optional human prefix plus 32 random hex characters. Clients must use the returned value for CAS; it is not a storage path.", "type": "string", "pattern": "^(?!.*\\.\\.)[a-z0-9][a-z0-9._-]{0,63}$"},
+    "mode": {"enum": ["setup", "continue", "review", "modify", "retrofit"]},
+    "approval_policy": {"enum": ["interactive", "guarded", "autonomous"]},
+    "phase": {"enum": ["discovery", "architecture", "documentation", "execution", "review", "complete"]},
+    "status": {"enum": ["planned", "active", "awaiting_approval", "blocked", "failed", "complete", "superseded"]},
+    "revision": {"type": "integer", "minimum": 0},
+    "event_revision": {"type": "integer", "minimum": -1},
+    "evidence_epoch": {"type": "integer", "minimum": 0},
+    "goal": {"type": "string", "minLength": 1},
+    "base_commit": {"type": ["string", "null"]},
+    "head_commit": {"type": ["string", "null"]},
+    "artifact_digest": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+    "approved_digest": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+    "approval": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["scope", "digest", "head_commit", "actor", "approved_at"],
+      "properties": {
+        "scope": {"type": "string", "minLength": 1},
+        "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "head_commit": {"type": ["string", "null"]},
+        "actor": {"$ref": "#/$defs/actor"},
+        "approved_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewed_digest", "unresolved_blockers"],
+      "properties": {
+        "status": {"enum": ["not_started", "in_progress", "failed", "conditionally_approved", "approved", "superseded"]},
+        "reviewed_digest": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+        "unresolved_blockers": {"type": "integer", "minimum": 0}
+      }
+    },
+    "work_packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id", "objective", "status", "dependencies", "affected_modules", "write_set",
+          "acceptance_checks", "base_revision", "risk", "risk_level", "required_review_roles",
+          "rollback", "stopping_condition",
+          "owner", "lease_expires", "contributors"
+        ],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "objective": {"type": "string", "minLength": 1},
+          "status": {"enum": ["planned", "ready", "active", "blocked", "failed", "complete", "superseded"]},
+          "dependencies": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "affected_modules": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "write_set": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "acceptance_checks": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "base_revision": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+          "risk": {"type": "string", "minLength": 1},
+          "risk_level": {"enum": ["low", "medium", "high", "critical"]},
+          "required_review_roles": {
+            "type": "array", "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "rollback": {"type": "string", "minLength": 1},
+          "stopping_condition": {"type": "string", "minLength": 1},
+          "owner": {"anyOf": [{"$ref": "#/$defs/actor"}, {"type": "null"}]},
+          "lease_expires": {"type": ["string", "null"], "format": "date-time"},
+          "contributors": {
+            "type": "array", "minItems": 1, "uniqueItems": true,
+            "items": {"$ref": "#/$defs/actor"}
+          },
+          "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+          "acceptance_evidence_start": {"type": "integer", "minimum": 0},
+          "baseline_manifest": {"$ref": "#/$defs/workspaceManifest"},
+          "execution_group": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+          "settlement_manifest": {"$ref": "#/$defs/workspaceManifest"},
+          "stale_base": {"type": "boolean"},
+          "lease_expired": {"type": "boolean"},
+          "stale_evidence": {"type": "boolean"},
+          "scope_drift": {"type": "boolean"},
+          "dependency_failed": {"type": "boolean"}
+        },
+        "allOf": [
+          {
+            "if": {"required": ["settlement_manifest"]},
+            "then": {"required": ["execution_group", "baseline_manifest"]}
+          },
+          {
+            "if": {"properties": {"status": {"const": "active"}}, "required": ["status"]},
+            "then": {"required": ["baseline_manifest"]}
+          },
+          {
+            "if": {"properties": {"scope_drift": {"const": true}}, "required": ["scope_drift"]},
+            "then": {"properties": {"status": {"const": "blocked"}}}
+          },
+          {
+            "if": {"properties": {"stale_base": {"const": true}}, "required": ["stale_base"]},
+            "then": {"properties": {"status": {"const": "blocked"}}}
+          },
+          {
+            "if": {"properties": {"lease_expired": {"const": true}}, "required": ["lease_expired"]},
+            "then": {"properties": {"status": {"const": "blocked"}}}
+          },
+          {
+            "if": {"properties": {"dependency_failed": {"const": true}}, "required": ["dependency_failed"]},
+            "then": {"properties": {"status": {"const": "blocked"}}}
+          }
+        ]
+      }
+    },
+    "validation_evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+    "blockers": {"type": "array", "items": {"$ref": "#/$defs/blocker"}},
+    "resolved_blockers": {"type": "array", "items": {"$ref": "#/$defs/resolved_blocker"}},
+    "handoff": {"$ref": "#/$defs/handoff"},
+    "next_action": {"type": "string"},
+    "updated_at": {"type": "string", "format": "date-time"}
+  }
+}

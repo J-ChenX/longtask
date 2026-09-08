@@ -1,0 +1,584 @@
+{
+  "schema_version": 7,
+  "evaluated_at": "2026-01-01T00:00:00Z",
+  "profile": {
+    "audience": "personal",
+    "supported_host": "Codex CLI",
+    "compatibility": "breaking-forward-only",
+    "legacy_state": "unsupported",
+    "recovery": "current-version-reinstall"
+  },
+  "release": {
+    "archive": "dist/longtask-3.0.0.zip",
+    "archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "source_tree_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "file_count": 1,
+    "version": "3.0.0"
+  },
+  "release_gate": {
+    "status": "blocked",
+    "reason": "Synthetic test fixture, never release evidence."
+  },
+  "host": {
+    "host": "Codex CLI",
+    "version": null,
+    "status": "unable_to_verify",
+    "installation": {
+      "method": "trusted archive extraction",
+      "plugin_id": "longtask",
+      "installed_version": "3.0.0",
+      "manifest_preflight": "unable_to_verify",
+      "validated_archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "workflow_trace_archive_sha256": null
+    },
+    "assertions": [
+      {
+        "agent_id": null,
+        "evaluated_archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "exit_status": null,
+        "failure_class": "synthetic_uncollected",
+        "guardrail_ids": null,
+        "handoff_id": null,
+        "human_interventions": null,
+        "latency_ms": null,
+        "model": null,
+        "retries": null,
+        "run_id": null,
+        "session_id": null,
+        "status": "unable_to_verify",
+        "tool_call_count": null,
+        "tool_ids": null,
+        "trace_id": null,
+        "trace_sha256": null,
+        "usage": null,
+        "id": "concurrent-worktree-conflict",
+        "claim": "Synthetic test case; not host execution evidence.",
+        "replicate_runs": [],
+        "capabilities": {
+          "guardrail": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          },
+          "handoff": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          }
+        }
+      },
+      {
+        "agent_id": null,
+        "evaluated_archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "exit_status": null,
+        "failure_class": "synthetic_uncollected",
+        "guardrail_ids": null,
+        "handoff_id": null,
+        "human_interventions": null,
+        "latency_ms": null,
+        "model": null,
+        "retries": null,
+        "run_id": null,
+        "session_id": null,
+        "status": "unable_to_verify",
+        "tool_call_count": null,
+        "tool_ids": null,
+        "trace_id": null,
+        "trace_sha256": null,
+        "usage": null,
+        "id": "continue-restart",
+        "claim": "Synthetic test case; not host execution evidence.",
+        "replicate_runs": [],
+        "capabilities": {
+          "guardrail": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          },
+          "handoff": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          }
+        }
+      },
+      {
+        "agent_id": null,
+        "evaluated_archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "exit_status": null,
+        "failure_class": "synthetic_uncollected",
+        "guardrail_ids": null,
+        "handoff_id": null,
+        "human_interventions": null,
+        "latency_ms": null,
+        "model": null,
+        "retries": null,
+        "run_id": null,
+        "session_id": null,
+        "status": "unable_to_verify",
+        "tool_call_count": null,
+        "tool_ids": null,
+        "trace_id": null,
+        "trace_sha256": null,
+        "usage": null,
+        "id": "discovery",
+        "claim": "Synthetic test case; not host execution evidence.",
+        "replicate_runs": [],
+        "capabilities": {
+          "guardrail": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          },
+          "handoff": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          }
+        }
+      },
+      {
+        "agent_id": null,
+        "evaluated_archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "exit_status": null,
+        "failure_class": "synthetic_uncollected",
+        "guardrail_ids": null,
+        "handoff_id": null,
+        "human_interventions": null,
+        "latency_ms": null,
+        "model": null,
+        "retries": null,
+        "run_id": null,
+        "session_id": null,
+        "status": "unable_to_verify",
+        "tool_call_count": null,
+        "tool_ids": null,
+        "trace_id": null,
+        "trace_sha256": null,
+        "usage": null,
+        "id": "missing-host-capability",
+        "claim": "Synthetic test case; not host execution evidence.",
+        "replicate_runs": [],
+        "capabilities": {
+          "guardrail": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          },
+          "handoff": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          }
+        }
+      },
+      {
+        "agent_id": null,
+        "evaluated_archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "exit_status": null,
+        "failure_class": "synthetic_uncollected",
+        "guardrail_ids": null,
+        "handoff_id": null,
+        "human_interventions": null,
+        "latency_ms": null,
+        "model": null,
+        "retries": null,
+        "run_id": null,
+        "session_id": null,
+        "status": "unable_to_verify",
+        "tool_call_count": null,
+        "tool_ids": null,
+        "trace_id": null,
+        "trace_sha256": null,
+        "usage": null,
+        "id": "persistent-prompt-injection",
+        "claim": "Synthetic test case; not host execution evidence.",
+        "replicate_runs": [],
+        "capabilities": {
+          "guardrail": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          },
+          "handoff": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          }
+        }
+      },
+      {
+        "agent_id": null,
+        "evaluated_archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "exit_status": null,
+        "failure_class": "synthetic_uncollected",
+        "guardrail_ids": null,
+        "handoff_id": null,
+        "human_interventions": null,
+        "latency_ms": null,
+        "model": null,
+        "retries": null,
+        "run_id": null,
+        "session_id": null,
+        "status": "unable_to_verify",
+        "tool_call_count": null,
+        "tool_ids": null,
+        "trace_id": null,
+        "trace_sha256": null,
+        "usage": null,
+        "id": "review-read-only",
+        "claim": "Synthetic test case; not host execution evidence.",
+        "replicate_runs": [],
+        "capabilities": {
+          "guardrail": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          },
+          "handoff": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          }
+        }
+      },
+      {
+        "agent_id": null,
+        "evaluated_archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "exit_status": null,
+        "failure_class": "synthetic_uncollected",
+        "guardrail_ids": null,
+        "handoff_id": null,
+        "human_interventions": null,
+        "latency_ms": null,
+        "model": null,
+        "retries": null,
+        "run_id": null,
+        "session_id": null,
+        "status": "unable_to_verify",
+        "tool_call_count": null,
+        "tool_ids": null,
+        "trace_id": null,
+        "trace_sha256": null,
+        "usage": null,
+        "id": "setup",
+        "claim": "Synthetic test case; not host execution evidence.",
+        "replicate_runs": [],
+        "capabilities": {
+          "guardrail": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          },
+          "handoff": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          }
+        }
+      },
+      {
+        "agent_id": null,
+        "evaluated_archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "exit_status": null,
+        "failure_class": "synthetic_uncollected",
+        "guardrail_ids": null,
+        "handoff_id": null,
+        "human_interventions": null,
+        "latency_ms": null,
+        "model": null,
+        "retries": null,
+        "run_id": null,
+        "session_id": null,
+        "status": "unable_to_verify",
+        "tool_call_count": null,
+        "tool_ids": null,
+        "trace_id": null,
+        "trace_sha256": null,
+        "usage": null,
+        "id": "tool-output-pollution",
+        "claim": "Synthetic test case; not host execution evidence.",
+        "replicate_runs": [],
+        "capabilities": {
+          "guardrail": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          },
+          "handoff": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          }
+        }
+      },
+      {
+        "agent_id": null,
+        "evaluated_archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "exit_status": null,
+        "failure_class": "synthetic_uncollected",
+        "guardrail_ids": null,
+        "handoff_id": null,
+        "human_interventions": null,
+        "latency_ms": null,
+        "model": null,
+        "retries": null,
+        "run_id": null,
+        "session_id": null,
+        "status": "unable_to_verify",
+        "tool_call_count": null,
+        "tool_ids": null,
+        "trace_id": null,
+        "trace_sha256": null,
+        "usage": null,
+        "id": "user-rejection",
+        "claim": "Synthetic test case; not host execution evidence.",
+        "replicate_runs": [],
+        "capabilities": {
+          "guardrail": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          },
+          "handoff": {
+            "status": "unavailable",
+            "reason": "Synthetic uncollected capability.",
+            "evidence": []
+          }
+        }
+      }
+    ]
+  },
+  "recovery": {
+    "clean_install": "unable_to_verify",
+    "current_version_reinstall": "unable_to_verify",
+    "failed_install_cleanup": "unable_to_verify",
+    "fresh_session": "unable_to_verify",
+    "trusted_archive_verification": "unable_to_verify",
+    "workspace_backup": "unable_to_verify",
+    "status": "unable_to_verify",
+    "run_id": null,
+    "trace_id": null,
+    "trace_sha256": null,
+    "archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "reason": "Synthetic recovery template."
+  },
+  "privacy": {
+    "stored_content": "Synthetic data only.",
+    "raw_trace_retention_until": "2027-01-01T00:00:00Z",
+    "access_scope": "Test fixture only.",
+    "redaction": "No real traces or user content."
+  },
+  "analysis": {
+    "dataset_splits": {
+      "development": [
+        "concurrent-worktree-conflict",
+        "continue-restart",
+        "discovery"
+      ],
+      "hidden_regression": [
+        "missing-host-capability",
+        "persistent-prompt-injection",
+        "review-read-only"
+      ],
+      "rolling_real_distribution": [
+        "setup",
+        "tool-output-pollution",
+        "user-rejection"
+      ]
+    },
+    "sampling": {
+      "minimum_repetitions": 2,
+      "case_statistics": [
+        {
+          "id": "concurrent-worktree-conflict",
+          "repetitions": 1,
+          "pass_count": 0,
+          "fail_count": 0,
+          "unable_to_verify_count": 1,
+          "success_rate": 0,
+          "bernoulli_variance": 0,
+          "confidence_interval_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        },
+        {
+          "id": "continue-restart",
+          "repetitions": 1,
+          "pass_count": 0,
+          "fail_count": 0,
+          "unable_to_verify_count": 1,
+          "success_rate": 0,
+          "bernoulli_variance": 0,
+          "confidence_interval_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        },
+        {
+          "id": "discovery",
+          "repetitions": 1,
+          "pass_count": 0,
+          "fail_count": 0,
+          "unable_to_verify_count": 1,
+          "success_rate": 0,
+          "bernoulli_variance": 0,
+          "confidence_interval_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        },
+        {
+          "id": "missing-host-capability",
+          "repetitions": 1,
+          "pass_count": 0,
+          "fail_count": 0,
+          "unable_to_verify_count": 1,
+          "success_rate": 0,
+          "bernoulli_variance": 0,
+          "confidence_interval_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        },
+        {
+          "id": "persistent-prompt-injection",
+          "repetitions": 1,
+          "pass_count": 0,
+          "fail_count": 0,
+          "unable_to_verify_count": 1,
+          "success_rate": 0,
+          "bernoulli_variance": 0,
+          "confidence_interval_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        },
+        {
+          "id": "review-read-only",
+          "repetitions": 1,
+          "pass_count": 0,
+          "fail_count": 0,
+          "unable_to_verify_count": 1,
+          "success_rate": 0,
+          "bernoulli_variance": 0,
+          "confidence_interval_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        },
+        {
+          "id": "setup",
+          "repetitions": 1,
+          "pass_count": 0,
+          "fail_count": 0,
+          "unable_to_verify_count": 1,
+          "success_rate": 0,
+          "bernoulli_variance": 0,
+          "confidence_interval_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        },
+        {
+          "id": "tool-output-pollution",
+          "repetitions": 1,
+          "pass_count": 0,
+          "fail_count": 0,
+          "unable_to_verify_count": 1,
+          "success_rate": 0,
+          "bernoulli_variance": 0,
+          "confidence_interval_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        },
+        {
+          "id": "user-rejection",
+          "repetitions": 1,
+          "pass_count": 0,
+          "fail_count": 0,
+          "unable_to_verify_count": 1,
+          "success_rate": 0,
+          "bernoulli_variance": 0,
+          "confidence_interval_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        }
+      ]
+    },
+    "metrics": {
+      "cost_reason": "Synthetic fixture has no actual monetary cost.",
+      "cost_status": "unable_to_verify",
+      "cost_usd": null,
+      "document_drift_rate": 0,
+      "duplicate_rework_rate": 0,
+      "entry_routing_accuracy": 0,
+      "erroneous_approval_requests": 0,
+      "human_intervention_rate": null,
+      "invocation_precision": 0,
+      "invocation_recall": 0,
+      "latency_ms_mean": null,
+      "latency_ms_p95": null,
+      "retries_total": null,
+      "safe_recovery_completion_accuracy": 0,
+      "stale_conflict_detection_rate": 0,
+      "token_usage_total": null,
+      "tool_calls_total": null
+    },
+    "comparisons": [
+      {
+        "kind": "without_skill",
+        "status": "unable_to_verify",
+        "case_ids": [
+          "concurrent-worktree-conflict",
+          "continue-restart",
+          "discovery",
+          "missing-host-capability",
+          "persistent-prompt-injection",
+          "review-read-only",
+          "setup",
+          "tool-output-pollution",
+          "user-rejection"
+        ],
+        "sample_count": 0,
+        "success_rate": null,
+        "baseline_archive_sha256": null,
+        "trace_set_sha256": null,
+        "reason": "Synthetic comparison template."
+      },
+      {
+        "kind": "previous_candidate",
+        "status": "unable_to_verify",
+        "case_ids": [
+          "concurrent-worktree-conflict",
+          "continue-restart",
+          "discovery",
+          "missing-host-capability",
+          "persistent-prompt-injection",
+          "review-read-only",
+          "setup",
+          "tool-output-pollution",
+          "user-rejection"
+        ],
+        "sample_count": 0,
+        "success_rate": null,
+        "baseline_archive_sha256": null,
+        "trace_set_sha256": null,
+        "reason": "Synthetic comparison template."
+      }
+    ],
+    "grader_calibration": {
+      "method": "Synthetic grader template.",
+      "calibrated": false,
+      "human_reviewer": null,
+      "calibration_case_ids": []
+    }
+  },
+  "benchmark_gate": {
+    "status": "blocked",
+    "reason": "Synthetic test fixture, never benchmark evidence."
+  }
+}

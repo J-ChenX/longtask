@@ -1,136 +1,67 @@
 # longtask
 
-一个 Claude Code / Codex 双平台技能，用于编排跨多个上下文窗口的长任务，或在多个智能体会话间需要保持一致架构决策的场景。
+面向 Codex 个人使用的长任务技能，用于必须跨越上下文重置、跨会话保留决策，或协调多个可独立验证工作包的复杂编码任务。运行时要求 Python 3.10 或更高版本。
 
-## 解决的问题
+## 3.0.0 边界
 
-长任务在会话间丢失上下文时会失败。下一个智能体从零开始，做出不一致的决策，重复已回答的问题。会话 1 中做出的架构选择对会话 5 中的智能体不可见。
+3.0.0 是破坏性版本：只支持 Codex，不包含 Claude Code 清单、规则或验证路径；不读取、不迁移 1.x/2.x 状态，也不提供跨版本回滚。旧任务记录不作为新工作的恢复来源；先将仍有效的项目事实合并到当前文档，再按当前目标初始化检查点。故障恢复使用当前 3.0.0 受信归档、工作区备份和同版本完整重装。
 
-## 解决方案
+## 设计
 
-**文档即手册架构：** 结构化的领域文档让任何 AI 智能体都能从任意节点恢复工作，无需依赖对话历史。
+- 持久文档只记录当前项目目标、功能、合同、决策、限制和验证方法；
+- 单份 `.longtask/` 临时检查点支持未完成工作的跨会话恢复，收尾后清除；
+- Git 版本和 SHA-256 摘要绑定批准、审查和完成声明；
+- 授权策略决定何时继续、何时询问；
+- 确定性测试和行为评测衡量路由与恢复质量。
 
-> 文档即记忆。代码即真相。文档指向代码——永不复制实现。
+代码描述已观察行为；已批准目标和合同描述预期行为。冲突在协调前始终保持可见。
 
-## 分支技能
+## 用户可用的行为流程
 
-longtask 提供 1 个主入口和 5 个场景化子技能。根据当前状态选择正确的入口：
+用户提出目标 → 读取当前架构和相关模块 → 明确变更与验收 → 实现并更新项目内容 → 验证与独立审查 → 清除临时检查点。
 
-### `longtask`（主入口）
+中断时从唯一检查点恢复未完成工作；已经完成的功能直接从模块文档和测试理解，不需要查找原任务。架构变更会重新检查依赖与合同，审查请求默认只读。项目长期保留“现在有什么、如何工作、如何验证”，不保留“哪项任务、哪个智能体、经过几轮才完成”。
 
-从 `docs/ARCHITECTURE.md` 状态表自动检测项目状态，路由到对应场景。
+详细的可执行生命周期、失败恢复、架构变更及 worktree 用法见[操作示例](references/操作示例.md)。日常可用 `doctor` 查看恢复缺口，用 `--output summary` 减少状态历史输出。
 
-```
-longtask/
-  SKILL.md              ← longtask（主入口：状态检测 + 路由）
-  skills/
-    setup/SKILL.md      ← longtask-setup     文档建立
-    continue/SKILL.md   ← longtask-continue  继续任务
-    review/SKILL.md     ← longtask-review    审查
-    modify/SKILL.md     ← longtask-modify    框架修改
-    retrofit/SKILL.md   ← longtask-retrofit  既有项目建档
-```
+新项目只需先保存目标，再逐步形成计划并更新交接；具体命令见[初始化与交接](references/初始化与交接.md)。只规划时保留断点，应用仍未实施。
 
-### `longtask-setup` — 文档建立
+## 入口技能
 
-**时机：** 全新项目从零开始。不存在 `docs/ARCHITECTURE.md`。
+| 场景 | 技能 |
+|---|---|
+| 自动状态/能力路由 | [`longtask`](SKILL.md) |
+| 新项目 | [`longtask-setup`](skills/longtask-setup/SKILL.md) |
+| 中断/压缩后恢复 | [`longtask-continue`](skills/longtask-continue/SKILL.md) |
+| 独立只读审查 | [`longtask-review`](skills/longtask-review/SKILL.md) |
+| 架构/工作流变更 | [`longtask-modify`](skills/longtask-modify/SKILL.md) |
+| 既无检查点、又无持久架构的已有代码 | [`longtask-retrofit`](skills/longtask-retrofit/SKILL.md) |
 
-**流程：** 发现 → 架构分层 → 文档化 → 执行 → 审查（完整五阶段流程）。
+六个入口由 `.codex-plugin/plugin.json` 的原生 `./skills/` 根统一发现，并作为一个资源闭合插件发布。生成文档的分层和固定文件名边界见[文档架构](文档架构.md)。
 
-### `longtask-continue` — 继续任务
-
-**时机：** 工作中途中断。`docs/ARCHITECTURE.md` 存在但模块状态有未完成项。
-
-**流程：** 状态检测 → 定位当前阶段恢复节点 → 继续走完后续阶段。
-
-### `longtask-review` — 审查
-
-**时机：** 所有模块已 ✅，或明确要求审查既有代码和文档。
-
-**流程：** 加载全部文档 → 组建专家小组（最少 3 人）→ 各专家独立审查 → 汇编发现 → 报告状态（通过 / 有条件通过 / 不通过）。
-
-### `longtask-modify` — 框架修改
-
-**时机：** 增删合并模块、变更依赖关系、更新技术选型、修复审查发现的问题。
-
-**流程：** 影响分析 → 更新 ARCHITECTURE.md 骨架 → 同步受影响模块文档 → 执行变更 → 轻量审查。
-
-### `longtask-retrofit` — 既有项目建档
-
-**时机：** 既有代码库尚无 longtask 文档，需要建立三层文档体系。
-
-**流程：** 代码扫描 → 推断模块边界 → 创建 ARCHITECTURE.md → 创建模块文档 → 质量抽查。跳过发现（代码就是规格）和执行（代码已存在）。
-
-## 五阶段工作流
-
-| 阶段 | 输入 | 输出 | 门控 |
-|------|------|------|------|
-| 第一阶段：发现 | 用户描述 | `_INDEX.md` 发现部分 | 用户批准发现记录 |
-| 第二阶段：架构分层 | 发现记录 | `ARCHITECTURE.md`（模块地图 + 构建顺序 + 状态表） | 用户批准分层架构 |
-| 第三阶段：文档化 | 发现记录 + ARCHITECTURE.md | 模块文档（默认单文件，按需展开目录）+ 工作包 | 用户批准文档结构 |
-| 第四阶段：执行 | 模块文档 + 代码库 | 实现代码 + 更新后的代码指针 | 每个工作包文档更新后方可标记完成 |
-| 第五阶段：审查 | 代码 + ARCHITECTURE.md + 模块文档 | `review-log.md` | 所有阻断项已解决 |
-
-每个阶段可在独立的上下文窗口中运行。智能体通过加载文档而非对话历史来恢复工作。
-
-每个阶段门控包含独立的 Agent 预审后才提交用户确认。
-
-## 安装方式
-
-### Claude Code / Codex 个人技能
+## 校验
 
 ```bash
-# macOS / Linux
-cp -r longtask ~/.claude/skills/
-
-# Windows
-xcopy /E /I longtask %USERPROFILE%\.claude\skills\longtask
+python3 scripts/build_release.py build --root . --output dist/longtask-3.0.0.zip
+python3 scripts/build_release.py verify --root . --archive dist/longtask-3.0.0.zip
+python3 scripts/validate_longtask.py
+python3 -m unittest discover -s tests -v
+python3 scripts/run_skill_evals.py --results evals/invocation_results.json
+python3 scripts/run_forward_evals.py
+# 仅发布流水线；Codex 宿主或当前版本恢复门未通过时返回非零
+python3 scripts/validate_longtask.py --require-release-pass
 ```
 
-### 插件安装
+`release-manifest.json` 是发布资源闭包的唯一清单。构建器固定文件顺序、时间戳、权限和存储方式，并在归档内写入逐文件 SHA-256 清单。`dist/` 是可清除的构建输出，不纳入 Git。普通静态校验在没有输出时使用临时构建，有输出时检查其与源码一致；发布门要求实际候选归档。schema、文档和哈希绑定评测始终校验。
 
-遵循 [agentskills.io 规范](https://agentskills.io/specification) 进行插件部署。
+提取后的插件使用 `python3 scripts/validate_longtask.py --installed` 自检；该结果与源码的真实宿主发布门分开报告。
 
-## 文件说明
+## 安装与恢复
 
-| 文件 | 用途 |
-|------|------|
-| [`SKILL.md`](SKILL.md) | 主技能定义——状态检测、五阶段工作流、恢复节点、常见错误 |
-| [`doc-architecture.md`](doc-architecture.md) | 三层模块化文档模板（ARCHITECTURE.md + 模块视角文档） |
-| [`expert-roles.md`](expert-roles.md) | 专家定义、文档记录员角色、预审 Agent、审查协议 |
-| [`skills/setup/SKILL.md`](skills/setup/SKILL.md) | 新项目文档建立入口 |
-| [`skills/continue/SKILL.md`](skills/continue/SKILL.md) | 中断工作恢复入口 |
-| [`skills/review/SKILL.md`](skills/review/SKILL.md) | 独立多专家审查入口 |
-| [`skills/modify/SKILL.md`](skills/modify/SKILL.md) | 架构修改入口 |
-| [`skills/retrofit/SKILL.md`](skills/retrofit/SKILL.md) | 既有项目建档入口 |
-| [`agents/openai.yaml`](agents/openai.yaml) | Codex UI 元数据 |
-| [`scripts/validate_longtask.py`](scripts/validate_longtask.py) | longtask 约定自检脚本 |
+个人安装必须先移出同名旧独立技能，再从已验证的 `dist/longtask-3.0.0.zip` 提取完整插件并通过默认个人 marketplace 安装；不要复制可变工作区或单独复制某个嵌套技能。发布方须通过受信渠道提供外部 SHA-256，安装位置、marketplace 条目、缓存刷新和恢复命令统一见[发布与恢复](references/发布与恢复.md)。
 
-## 三层模块化文档
+上线门只接受当前归档绑定的 Codex 全新会话矩阵和当前版本恢复演练。Codex 本地 manifest 预检不能代替真实宿主工作流。详细步骤见[发布与恢复](references/发布与恢复.md)。
 
-技能激活后，在项目下创建以下结构：
+技能格式遵循 [Agent Skills 规范](https://agentskills.io/specification)，Codex 插件清单由 Codex 定义。项目使用 MIT 许可证。
 
-```
-docs/
-  ARCHITECTURE.md                 ← L0：项目骨架（模块地图 + 构建顺序 + 状态）
-  modules/
-    {模块名}.md                   ← 默认：单文件模块文档
-    {复杂模块名}/
-      README.md                   ← 展开后：业务视角（职责、流程、规则）
-      architecture.md             ← 展开后：架构视角（接口、组件、数据流）
-      internals.md                ← 展开后：实现细节（文件结构、配置、已知坑）
-      security.md                 ← 展开后：安全细节（权限、数据分类）
-      algorithm.md                ← 展开后：算法细节（按需，仅非平凡算法）
-  appendix/
-    global-concerns.md            ← 跨模块关注点（基础设施、部署、监控）
-```
-
-**L0 是项目入口。** 5 分钟读完 `ARCHITECTURE.md` 即可理解项目全貌。
-**L1 是模块血肉。** 简单模块读 `modules/{name}.md`；复杂模块读 `modules/{name}/README.md`。
-**L2 是模块神经。** 需要实现细节时才深入 `internals.md`。
-
-文档按**模块**组织（而非按领域）。简单模块先保持单文件；复杂模块再展开目录，并通过 markdown 交叉引用连接各视角文件。
-
-## 许可协议
-
-MIT
+发布验收区分核心可用性与收益：`release_gate` 保留真实行为、授权、版本绑定和恢复要求；`benchmark_gate` 单独判断对照与性能数据。查看[发布与恢复](references/发布与恢复.md)；`--require-release-pass` 会逐项列出尚缺的核心验收。易变评测运行结果保留在源码目录，不随插件安装。

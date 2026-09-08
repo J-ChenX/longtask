@@ -11,6 +11,15 @@ ehthumbs.db
 *.swo
 *~
 
+# Python bytecode
+__pycache__/
+*.py[cod]
+.ruff_cache/
+
 # Windows
 $RECYCLE.BIN/
 *.lnk
+
+# Transient resume checkpoint and reproducible release output
+.longtask/
+dist/

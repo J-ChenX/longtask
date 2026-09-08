@@ -1,0 +1,271 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "new_multi_session_product",
+      "prompt": "Build a new offline-first field-service app. This will span several sessions; preserve architecture decisions and handoffs.",
+      "should_trigger": true,
+      "expected_entry": "setup",
+      "rationale": "A new multi-session product needs durable orchestration."
+    },
+    {
+      "id": "existing_code_no_docs",
+      "prompt": "Use longtask to take over this existing service. It has source code but no architecture or task state; recover what it does before changing it.",
+      "should_trigger": true,
+      "expected_entry": "retrofit",
+      "rationale": "Existing implementation without durable state requires retrofit."
+    },
+    {
+      "id": "resume_after_compaction",
+      "prompt": "Continue the active longtask after context compaction. Validate the checkpoint and resume the recorded next action.",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "Explicit recovery from durable state is the continue path."
+    },
+    {
+      "id": "architecture_migration",
+      "prompt": "In this active longtask, change the documented system from a single database to tenant-sharded storage, including migration and rollback, without losing the current work packages.",
+      "should_trigger": true,
+      "expected_entry": "modify",
+      "rationale": "A persistence and module-graph change is L4."
+    },
+    {
+      "id": "independent_final_review",
+      "prompt": "The implementation is finished. Run the longtask independent multi-risk review and verify that the recorded evidence still matches the workspace.",
+      "should_trigger": true,
+      "expected_entry": "review",
+      "rationale": "Explicit evidence-bound longtask review selects review."
+    },
+    {
+      "id": "complex_existing_program",
+      "prompt": "This repository already contains a working compiler prototype. Establish durable architecture and a safe plan for a month of agent work.",
+      "should_trigger": true,
+      "expected_entry": "retrofit",
+      "rationale": "Long-running work starts from existing code whose intent must be recovered."
+    },
+    {
+      "id": "cross_session_security_rework",
+      "prompt": "Modify the active longtask architecture across several independent work packages and context windows to redesign authentication, migrate sessions, and retain auditable approvals.",
+      "should_trigger": true,
+      "expected_entry": "modify",
+      "rationale": "Explicit cross-session architecture work with trust-boundary changes needs longtask."
+    },
+    {
+      "id": "explicit_small_longtask",
+      "prompt": "Use the longtask skill even though this is a tiny empty demo; initialize it so I can test the workflow.",
+      "should_trigger": true,
+      "expected_entry": "setup",
+      "rationale": "Explicit skill invocation overrides the normal size boundary."
+    },
+    {
+      "id": "documented_without_v3_state",
+      "prompt": "This substantial project already has longtask architecture documents but no current v3 active-state pointer. Preserve old material read-only, initialize a new current state, and continue the approved goal.",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "Durable architecture exists and needs a fresh current v3 state before resumption; old state is not migrated."
+    },
+    {
+      "id": "explicit_small_existing_longtask",
+      "prompt": "Use longtask on this tiny existing Python service. It has code but no project architecture; initialize durable state before we extend it later.",
+      "should_trigger": true,
+      "expected_entry": "retrofit",
+      "rationale": "Explicit invocation plus existing undocumented code selects retrofit."
+    },
+    {
+      "id": "review_across_handoff",
+      "prompt": "Review the completed authorization rewrite across security, operations, and contract risks. The review will hand off to another agent tomorrow and must retain revision-bound evidence.",
+      "should_trigger": true,
+      "expected_entry": "review",
+      "rationale": "A multi-risk review spanning a handoff needs durable review state."
+    },
+    {
+      "id": "interrupted_non_longtask_codebase",
+      "prompt": "Take over this interrupted month-long implementation. Source exists, but the prior chat was lost and there are no durable architecture or task documents.",
+      "should_trigger": true,
+      "expected_entry": "retrofit",
+      "rationale": "Existing code with lost intent and no longtask records requires retrofit."
+    },
+    {
+      "id": "implicit_large_greenfield",
+      "prompt": "Build a new multi-tenant analytics platform with ingestion, billing, permissions, deployment, and separate testable milestones; keep it recoverable across handoffs.",
+      "should_trigger": true,
+      "expected_entry": "setup",
+      "rationale": "A clearly substantial greenfield build needs setup even without naming the skill."
+    },
+    {
+      "id": "active_workflow_redesign",
+      "prompt": "Our active longtask must replace its release workflow and task-state persistence model while preserving rollback and current package evidence.",
+      "should_trigger": true,
+      "expected_entry": "modify",
+      "rationale": "Changing workflow and persistence in an active longtask is modify."
+    },
+    {
+      "id": "single_typo",
+      "prompt": "Fix the typo in the README heading and verify the diff.",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "A tiny bounded edit does not need durable orchestration."
+    },
+    {
+      "id": "explain_function",
+      "prompt": "Explain what parse_config() does; do not change anything.",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "A local explanation fits one context."
+    },
+    {
+      "id": "small_patch_review",
+      "prompt": "Review this 20-line patch for an off-by-one bug and report findings only.",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "A small review does not need the longtask state system."
+    },
+    {
+      "id": "one_unit_test",
+      "prompt": "Add one unit test for the existing date parser.",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "A single bounded implementation task should use the normal workflow."
+    },
+    {
+      "id": "summarize_log",
+      "prompt": "Summarize the last 50 lines of this build log.",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "Summarization does not need coding-task persistence."
+    },
+    {
+      "id": "git_status",
+      "prompt": "Tell me which files are modified in this repository.",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "A read-only status check is short and deterministic."
+    },
+    {
+      "id": "small_refactor",
+      "prompt": "Rename this private variable and run the focused test.",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "A safe local refactor does not cross sessions or domains."
+    },
+    {
+      "id": "general_advice",
+      "prompt": "What are the pros and cons of monorepos?",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "General advice is not an active long-running coding task."
+    },
+    {
+      "id": "parallel_single_session_inspection",
+      "prompt": "Have two agents independently inspect this one stack trace, compare their diagnoses, and answer in this session.",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "Parallel read-only analysis alone does not require cross-session orchestration."
+    },
+    {
+      "id": "planning_only",
+      "prompt": "Sketch possible approaches for a database migration, but do not edit the repository or create a durable implementation plan.",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "One-session advisory brainstorming is not an active longtask."
+    },
+    {
+      "id": "large_repo_local_fix",
+      "prompt": "This repository is huge, but only fix the misspelled error message in one known file and run its focused test.",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "Repository size does not make a bounded fix a longtask."
+    },
+    {
+      "id": "resume_small_chat_task",
+      "prompt": "Continue the previous chat's two-line CSS alignment fix; no project state or handoff is needed.",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "Conversational continuation of a tiny task is not durable recovery."
+    },
+    {
+      "id": "single_session_endpoint",
+      "prompt": "Add one endpoint and its focused tests. Keep the change self-contained and finish it in this session.",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "Multiple files do not imply a multi-session task."
+    },
+    {
+      "id": "bounded_module_review",
+      "prompt": "Review one self-contained authentication module now and report findings only; no persistent workflow artifacts are wanted.",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "A bounded read-only review that fits one session stays outside longtask."
+    },
+    {
+      "id": "zh_new_cross_session_project",
+      "prompt": "从零搭建一个多租户客服平台，包含权限、计费、部署和分阶段验收，这项工作会跨多个会话并需要可靠交接。",
+      "should_trigger": true,
+      "expected_entry": "setup",
+      "rationale": "跨会话的复杂新项目需要初始化持久编排。"
+    },
+    {
+      "id": "zh_existing_without_architecture",
+      "prompt": "接手这个已有代码库。之前的对话已经丢失，也没有架构或任务状态，请先恢复当前行为和意图，再规划后续数周工作。",
+      "should_trigger": true,
+      "expected_entry": "retrofit",
+      "rationale": "已有实现但没有持久架构或状态，需要先接入。"
+    },
+    {
+      "id": "zh_resume_checkpoint",
+      "prompt": "继续当前 longtask。上下文刚刚被压缩，请校验检查点和产物版本，然后恢复状态中记录的下一步。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "从持久检查点恢复属于 continue。"
+    },
+    {
+      "id": "zh_change_active_architecture",
+      "prompt": "修改活动 longtask 的存储架构，从单库迁移到分片方案，并保留现有工作包、迁移策略、审查证据和回滚能力。",
+      "should_trigger": true,
+      "expected_entry": "modify",
+      "rationale": "活动任务中的持久化和模块图变化属于架构修改。"
+    },
+    {
+      "id": "zh_independent_longtask_review",
+      "prompt": "实现已经完成，请对这个跨会话 longtask 做独立的架构、安全和可靠性终审，并确认全部证据仍绑定当前版本。",
+      "should_trigger": true,
+      "expected_entry": "review",
+      "rationale": "明确要求版本绑定的多风险 longtask 审查。"
+    },
+    {
+      "id": "zh_fix_typo",
+      "prompt": "修复 README 中的一个错别字并检查差异。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "单一小改动不需要持久编排。"
+    },
+    {
+      "id": "zh_explain_function",
+      "prompt": "解释这个函数做什么，不要修改代码。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "局部解释可以在一个上下文完成。"
+    },
+    {
+      "id": "zh_one_test",
+      "prompt": "给现有日期解析器补一个单元测试。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "有边界的单项实现应使用普通工作流。"
+    },
+    {
+      "id": "zh_status_only",
+      "prompt": "告诉我这个仓库当前修改了哪些文件。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "简短只读状态检查不需要 longtask。"
+    },
+    {
+      "id": "zh_bounded_review",
+      "prompt": "现在只审查这个二十行补丁并报告问题，不需要创建持久任务或跨会话交接。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "单次会话内的有界只读审查不应触发 longtask。"
+    }
+  ]
+}
