@@ -2,18 +2,18 @@
   "schema_version": 3,
   "evaluation": {
     "method": "Blind prompt-only classification against current skill entry contracts",
-    "evaluator": "independent planning_blind_invocation subagent, metadata-only blind classification",
-    "evaluated_at": "2026-09-07T09:14:29.873374+00:00",
+    "evaluator": "independent blind_invocation subagent, metadata and entry-contract blind classification",
+    "evaluated_at": "2026-09-23T09:17:31.576955+00:00",
     "assurance": "unattested_classification",
     "model": "unrecorded",
-    "harness": "Fresh independent metadata-only classification; expected labels withheld",
+    "harness": "Fresh independent prompt classification using metadata and entry contracts; expected labels withheld",
     "repetitions": 1,
     "trace_available": false,
     "trace_id": null
   },
   "inputs": {
     "corpus_sha256": "ea61604a72769431b1a7060d22f559294ee7316f613dffbebf5cd52a1bd02f19",
-    "discovery_surface_sha256": "ff1a73f9f06ed677be8a4af802219a5ecf6c8f57adf44b8f1f1b6a4c5a8fff64",
+    "discovery_surface_sha256": "c5127fc3526b7a54a29cb0f32e01b28676e5ff59c9d9ce3579f963435eff70e3",
     "runner_sha256": "7c17580414c777ca17880a04c4b55ff30de3752f639338c7d7f8072bbb2a2608"
   },
   "results": [
