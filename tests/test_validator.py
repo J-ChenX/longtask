@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import ExitStack, redirect_stderr
+from contextlib import ExitStack, redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -435,6 +435,32 @@ class ValidatorTests(unittest.TestCase):
                 self.assertIsInstance(errors, list)
                 self.assertTrue(errors)
                 self.assertTrue(all(isinstance(error, str) and error for error in errors))
+
+    def test_documentation_names_are_validated_as_links_not_historical_spellings(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "evals").mkdir()
+            (root / "evals/host_results.json").write_text("{}")
+            (root / "overview.md").write_text("# Overview\n")
+            with ExitStack() as stack:
+                stack.enter_context(mock.patch.object(VALIDATOR, "ROOT", root))
+                stack.enter_context(mock.patch.object(VALIDATOR, "REQUIRED_FILES", ()))
+                stack.enter_context(mock.patch.object(VALIDATOR, "SKILL_NAMES", ()))
+                for name in ("check_skill", "check_disclosure_graph", "check_metadata",
+                             "check_release_archive", "check_host_results",
+                             "check_invocation_results", "check_forward_results"):
+                    stack.enter_context(mock.patch.object(VALIDATOR, name))
+                for target, expected in (("overview.md", 0), ("doc-architecture.md", 1)):
+                    with self.subTest(target=target):
+                        (root / "README.md").write_text(
+                            f"Former name: doc-architecture.md. [Guide]({target})\n")
+                        errors = io.StringIO()
+                        with redirect_stderr(errors), redirect_stdout(io.StringIO()):
+                            self.assertEqual(VALIDATOR.main([]), expected)
+                        if expected:
+                            self.assertIn("dead local link", errors.getvalue())
+                        else:
+                            self.assertEqual(errors.getvalue(), "")
 
     def test_release_cli_rejects_malformed_gate_with_errors_instead_of_traceback(self) -> None:
         baseline = self.host_fixture()

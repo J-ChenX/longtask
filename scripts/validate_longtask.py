@@ -62,19 +62,6 @@ FORBIDDEN_PHRASES = {
     "代码即真相": "obsolete code-as-intent rule",
     "代码是真相": "obsolete code-as-intent rule",
     "代码优先真相": "obsolete code-as-intent rule",
-    "docs/appendix/global-concerns.md": "removed appendix reference",
-    "skills/setup/SKILL.md": "legacy subskill path",
-    "skills/continue/SKILL.md": "legacy subskill path",
-    "skills/review/SKILL.md": "legacy subskill path",
-    "skills/modify/SKILL.md": "legacy subskill path",
-    "skills/retrofit/SKILL.md": "legacy subskill path",
-    "doc-architecture.md": "renamed documentation reference",
-    "expert-roles.md": "renamed review reference",
-    "references/state-protocol.md": "renamed state protocol reference",
-    "references/platform-adapters.md": "renamed platform adapter reference",
-    "references/evaluation.md": "renamed evaluation protocol reference",
-    "_INDEX.md": "renamed task knowledge document",
-    "review-log.md": "renamed review record document",
 }
 
 WINDOWS_RESERVED_NAME = re.compile(r"^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$", re.IGNORECASE)
@@ -1554,8 +1541,6 @@ def main(argv: list[str] | None = None) -> int:
     for path in ROOT.rglob("*"):
         if {".git", ".longtask", "dist"}.intersection(path.relative_to(ROOT).parts) or not path.is_file():
             continue
-        if path.name == "overview.md":
-            fail(errors, f"legacy module overview file remains: {path.relative_to(ROOT)}")
         if path.suffix.lower() not in TEXT_SUFFIXES:
             continue
         if path.resolve() == Path(__file__).resolve():

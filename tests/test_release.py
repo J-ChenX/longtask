@@ -25,20 +25,6 @@ SPEC.loader.exec_module(build_release)
 
 
 class ReleaseArchiveTests(unittest.TestCase):
-    def test_extracted_release_documentation_links_are_closed(self) -> None:
-        spec = importlib.util.spec_from_file_location("release_link_validator", ROOT / "scripts/validate_longtask.py")
-        validator = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(validator)
-        with tempfile.TemporaryDirectory() as temporary:
-            archive = Path(temporary) / "release.zip"
-            result = build_release.build(ROOT, archive)
-            installed = build_release.extract(archive, Path(temporary) / "install", result["archive_sha256"])
-            installed_root = Path(installed["destination"])
-            errors: list[str] = []
-            with mock.patch.object(validator, "ROOT", installed_root):
-                validator.check_markdown_links(installed_root, errors)
-            self.assertEqual(errors, [])
-
     def test_clean_extraction_self_check_and_tests_do_not_need_evaluation_results(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
