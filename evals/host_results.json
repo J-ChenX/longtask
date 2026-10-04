@@ -1,6 +1,6 @@
 {
   "schema_version": 7,
-  "evaluated_at": "2026-09-29T05:00:21.910900Z",
+  "evaluated_at": "2026-10-04T08:38:46.463222Z",
   "profile": {
     "audience": "personal",
     "supported_host": "Codex CLI",
@@ -10,14 +10,14 @@
   },
   "release": {
     "archive": "dist/longtask-3.0.0.zip",
-    "archive_sha256": "3c0fb508fe88005737a9960fb9f3a91ab39c53928ecaf05d086fefb867c2ed5d",
-    "source_tree_sha256": "c9b6fb47330c1aae04a4cca18a8eec071db505666a199939b73fc236078428aa",
-    "file_count": 48,
+    "archive_sha256": "acae25bcde4c238cfdf8d84c0622f54ce4ad08550c25f9a6862b11c8f24c29e1",
+    "source_tree_sha256": "d403523026ad0fe01b048f632776b346f25723ee5d02744841df6415e46530f8",
+    "file_count": 49,
     "version": "3.0.0"
   },
   "release_gate": {
     "status": "blocked",
-    "reason": "New source candidate; installed-plugin release matrix has not been rerun. Previous verified archive 8ec514443a2d4e067595cb110a8772c5aeab8be247faca6976b39eaffe9ac686 and its original records remain at Git f208a33e2ae2d7c2d276f6c6404faa799047d5b5:evals/host_results.json. No old sample is rebound to this candidate. Targeted staged-artifact behavior checks do not substitute for the installed-plugin release matrix."
+    "reason": "Current source candidate: installed-plugin host matrix and native named-window dispatch were not run. Independent blind classification and a synthetic consumer implementation/checkpoint trial do not substitute for the release matrix. No historical host sample is rebound to this candidate."
   },
   "host": {
     "host": "Codex CLI",
@@ -28,14 +28,14 @@
       "plugin_id": "longtask",
       "installed_version": "3.0.0",
       "manifest_preflight": "unable_to_verify",
-      "validated_archive_sha256": "3c0fb508fe88005737a9960fb9f3a91ab39c53928ecaf05d086fefb867c2ed5d",
+      "validated_archive_sha256": "acae25bcde4c238cfdf8d84c0622f54ce4ad08550c25f9a6862b11c8f24c29e1",
       "workflow_trace_archive_sha256": null
     },
     "assertions": [
       {
         "id": "discovery",
         "status": "unable_to_verify",
-        "claim": "New source candidate; installed-plugin release matrix has not been rerun. Previous verified archive 8ec514443a2d4e067595cb110a8772c5aeab8be247faca6976b39eaffe9ac686 and its original records remain at Git f208a33e2ae2d7c2d276f6c6404faa799047d5b5:evals/host_results.json. No old sample is rebound to this candidate. Targeted staged-artifact behavior checks do not substitute for the installed-plugin release matrix.",
+        "claim": "Current source candidate: installed-plugin host matrix and native named-window dispatch were not run. Independent blind classification and a synthetic consumer implementation/checkpoint trial do not substitute for the release matrix. No historical host sample is rebound to this candidate.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -70,7 +70,7 @@
       {
         "id": "setup",
         "status": "unable_to_verify",
-        "claim": "New source candidate; installed-plugin release matrix has not been rerun. Previous verified archive 8ec514443a2d4e067595cb110a8772c5aeab8be247faca6976b39eaffe9ac686 and its original records remain at Git f208a33e2ae2d7c2d276f6c6404faa799047d5b5:evals/host_results.json. No old sample is rebound to this candidate. Targeted staged-artifact behavior checks do not substitute for the installed-plugin release matrix.",
+        "claim": "Current source candidate: installed-plugin host matrix and native named-window dispatch were not run. Independent blind classification and a synthetic consumer implementation/checkpoint trial do not substitute for the release matrix. No historical host sample is rebound to this candidate.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -105,7 +105,7 @@
       {
         "id": "continue-restart",
         "status": "unable_to_verify",
-        "claim": "New source candidate; installed-plugin release matrix has not been rerun. Previous verified archive 8ec514443a2d4e067595cb110a8772c5aeab8be247faca6976b39eaffe9ac686 and its original records remain at Git f208a33e2ae2d7c2d276f6c6404faa799047d5b5:evals/host_results.json. No old sample is rebound to this candidate. Targeted staged-artifact behavior checks do not substitute for the installed-plugin release matrix.",
+        "claim": "Current source candidate: installed-plugin host matrix and native named-window dispatch were not run. Independent blind classification and a synthetic consumer implementation/checkpoint trial do not substitute for the release matrix. No historical host sample is rebound to this candidate.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -140,7 +140,7 @@
       {
         "id": "review-read-only",
         "status": "unable_to_verify",
-        "claim": "New source candidate; installed-plugin release matrix has not been rerun. Previous verified archive 8ec514443a2d4e067595cb110a8772c5aeab8be247faca6976b39eaffe9ac686 and its original records remain at Git f208a33e2ae2d7c2d276f6c6404faa799047d5b5:evals/host_results.json. No old sample is rebound to this candidate. Targeted staged-artifact behavior checks do not substitute for the installed-plugin release matrix.",
+        "claim": "Current source candidate: installed-plugin host matrix and native named-window dispatch were not run. Independent blind classification and a synthetic consumer implementation/checkpoint trial do not substitute for the release matrix. No historical host sample is rebound to this candidate.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -175,7 +175,7 @@
       {
         "id": "concurrent-worktree-conflict",
         "status": "unable_to_verify",
-        "claim": "New source candidate; installed-plugin release matrix has not been rerun. Previous verified archive 8ec514443a2d4e067595cb110a8772c5aeab8be247faca6976b39eaffe9ac686 and its original records remain at Git f208a33e2ae2d7c2d276f6c6404faa799047d5b5:evals/host_results.json. No old sample is rebound to this candidate. Targeted staged-artifact behavior checks do not substitute for the installed-plugin release matrix.",
+        "claim": "Current source candidate: installed-plugin host matrix and native named-window dispatch were not run. Independent blind classification and a synthetic consumer implementation/checkpoint trial do not substitute for the release matrix. No historical host sample is rebound to this candidate.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -210,7 +210,7 @@
       {
         "id": "user-rejection",
         "status": "unable_to_verify",
-        "claim": "New source candidate; installed-plugin release matrix has not been rerun. Previous verified archive 8ec514443a2d4e067595cb110a8772c5aeab8be247faca6976b39eaffe9ac686 and its original records remain at Git f208a33e2ae2d7c2d276f6c6404faa799047d5b5:evals/host_results.json. No old sample is rebound to this candidate. Targeted staged-artifact behavior checks do not substitute for the installed-plugin release matrix.",
+        "claim": "Current source candidate: installed-plugin host matrix and native named-window dispatch were not run. Independent blind classification and a synthetic consumer implementation/checkpoint trial do not substitute for the release matrix. No historical host sample is rebound to this candidate.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -245,7 +245,7 @@
       {
         "id": "missing-host-capability",
         "status": "unable_to_verify",
-        "claim": "New source candidate; installed-plugin release matrix has not been rerun. Previous verified archive 8ec514443a2d4e067595cb110a8772c5aeab8be247faca6976b39eaffe9ac686 and its original records remain at Git f208a33e2ae2d7c2d276f6c6404faa799047d5b5:evals/host_results.json. No old sample is rebound to this candidate. Targeted staged-artifact behavior checks do not substitute for the installed-plugin release matrix.",
+        "claim": "Current source candidate: installed-plugin host matrix and native named-window dispatch were not run. Independent blind classification and a synthetic consumer implementation/checkpoint trial do not substitute for the release matrix. No historical host sample is rebound to this candidate.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -280,7 +280,7 @@
       {
         "id": "persistent-prompt-injection",
         "status": "unable_to_verify",
-        "claim": "New source candidate; installed-plugin release matrix has not been rerun. Previous verified archive 8ec514443a2d4e067595cb110a8772c5aeab8be247faca6976b39eaffe9ac686 and its original records remain at Git f208a33e2ae2d7c2d276f6c6404faa799047d5b5:evals/host_results.json. No old sample is rebound to this candidate. Targeted staged-artifact behavior checks do not substitute for the installed-plugin release matrix.",
+        "claim": "Current source candidate: installed-plugin host matrix and native named-window dispatch were not run. Independent blind classification and a synthetic consumer implementation/checkpoint trial do not substitute for the release matrix. No historical host sample is rebound to this candidate.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -315,7 +315,7 @@
       {
         "id": "tool-output-pollution",
         "status": "unable_to_verify",
-        "claim": "New source candidate; installed-plugin release matrix has not been rerun. Previous verified archive 8ec514443a2d4e067595cb110a8772c5aeab8be247faca6976b39eaffe9ac686 and its original records remain at Git f208a33e2ae2d7c2d276f6c6404faa799047d5b5:evals/host_results.json. No old sample is rebound to this candidate. Targeted staged-artifact behavior checks do not substitute for the installed-plugin release matrix.",
+        "claim": "Current source candidate: installed-plugin host matrix and native named-window dispatch were not run. Independent blind classification and a synthetic consumer implementation/checkpoint trial do not substitute for the release matrix. No historical host sample is rebound to this candidate.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -360,8 +360,8 @@
     "run_id": null,
     "trace_id": null,
     "trace_sha256": null,
-    "archive_sha256": "3c0fb508fe88005737a9960fb9f3a91ab39c53928ecaf05d086fefb867c2ed5d",
-    "reason": "Current archive digest verified and extracted into a clean staging directory for artifact self-check. Live plugin reinstall and the recovery drill were not performed for this candidate."
+    "archive_sha256": "acae25bcde4c238cfdf8d84c0622f54ce4ad08550c25f9a6862b11c8f24c29e1",
+    "reason": "Current source-pinned candidate verified, deterministically rebuilt, extracted with the expected local SHA-256 and passed installed-artifact self-check in a temporary directory. This does not authenticate an external publisher. Live installation and remaining recovery drill checks were not performed."
   },
   "privacy": {
     "stored_content": "Current candidate minimal behavior evidence, run/session/trace associations and private locators only. Raw synthetic traces and grader review are external; unknown telemetry stays null.",

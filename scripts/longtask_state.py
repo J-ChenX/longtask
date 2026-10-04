@@ -3061,7 +3061,7 @@ def parser() -> argparse.ArgumentParser:
     package.add_argument("--root", required=True)
     package.add_argument("--expected-task-id", required=True)
     package.add_argument("--expected-revision", type=int, required=True)
-    package.add_argument("--data", required=True, help="complete work-package JSON object")
+    package.add_argument("--data", required=True, help="complete contract input JSON, not a returned package record; exclude evidence/runtime fields (see references/状态协议.md)")
     package.add_argument("--actor", default="agent")
     package.set_defaults(function=cmd_package)
 

@@ -22,6 +22,7 @@
 | `references/状态协议.md` | 状态、批准、检查点和并发协议。 |
 | `references/state.schema.json` | 机器可读任务状态 schema。 |
 | `references/平台适配器.md` | 基于能力的宿主适配。 |
+| `references/平行任务协作.md` | 独立窗口的边界、外部合同消费、续接与有界集成。 |
 | `references/评测协议.md` | 调用与工作流评测协议。 |
 | `references/发布与恢复.md` | Codex 单宿主发布、当前版本恢复和兼容性边界。 |
 | `文档架构.md` | 持久项目文档架构、命名规则和展开判定。 |

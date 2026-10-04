@@ -1,19 +1,19 @@
 {
   "schema_version": 3,
   "evaluation": {
-    "method": "Independent blind prompt-only classification against current skill descriptions and entry contracts",
-    "evaluator": "final_blind_invocation subagent; expected labels withheld",
-    "evaluated_at": "2026-09-29T04:14:44.685854+00:00",
+    "method": "Independent prompt-only classification of current skill descriptions and entry contracts; expected labels withheld",
+    "evaluator": "invocation_check independent subagent",
+    "evaluated_at": "2026-10-04T08:33:47.065186+00:00",
     "assurance": "unattested_classification",
     "model": "unrecorded",
-    "harness": "Fresh independent subagent read only stripped prompts and skill descriptions/entry contracts; no host execution",
+    "harness": "Isolated subagent with stripped id/prompt corpus; final single classification, no native host execution",
     "repetitions": 1,
     "trace_available": false,
     "trace_id": null
   },
   "inputs": {
-    "corpus_sha256": "ea61604a72769431b1a7060d22f559294ee7316f613dffbebf5cd52a1bd02f19",
-    "discovery_surface_sha256": "587ed51c25f7c33450a0d25f5d5cc49ecd9273f3f31ef95526521e0c722f8438",
+    "corpus_sha256": "2df35a909066fcd0cd190c9891c7543e18e2c57bd86a36b614688e14bc02dfc1",
+    "discovery_surface_sha256": "a771bbd7f90ef5a28ffcddc7bf14270c9d3c6751d38928da7f5bf22233ff5769",
     "runner_sha256": "7c17580414c777ca17880a04c4b55ff30de3752f639338c7d7f8072bbb2a2608"
   },
   "results": [
@@ -199,6 +199,36 @@
     },
     {
       "id": "zh_status_only",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "zh_peer_domain_resume",
+      "selected": true,
+      "entry": "continue"
+    },
+    {
+      "id": "zh_peer_boundary_modify",
+      "selected": true,
+      "entry": "modify"
+    },
+    {
+      "id": "zh_two_windows_explain",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "zh_peer_version_lookup",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "zh_peer_window_creation",
+      "selected": true,
+      "entry": "continue"
+    },
+    {
+      "id": "zh_rename_window_only",
       "selected": false,
       "entry": null
     },

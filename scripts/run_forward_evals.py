@@ -36,6 +36,7 @@ CONTRACT_INPUTS = (
     "references/state.schema.json",
     "references/状态协议.md",
     "references/平台适配器.md",
+    "references/平行任务协作.md",
     "references/评测协议.md",
     "专家审查协议.md",
     "文档架构.md",

@@ -261,6 +261,48 @@
       "rationale": "简短只读状态检查不需要 longtask。"
     },
     {
+      "id": "zh_peer_domain_resume",
+      "prompt": "继续本工作树的跨会话 SDK 任务：已有架构和有效 longtask 检查点，数据任务刚发布固定版本接口。核对材料后完成消费方适配，不修改提供方或其他八个窗口的区域。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "独立窗口已有有效状态，外部依赖到达后的实施仍从本地断点续接。"
+    },
+    {
+      "id": "zh_peer_boundary_modify",
+      "prompt": "修改现有 longtask 的模块合同和协作架构，将九个跨会话领域分为独立工作树任务，明确共享迁移、合同发布、消费适配和接线负责人，保留当前目标与状态。",
+      "should_trigger": true,
+      "expected_entry": "modify",
+      "rationale": "已有架构及状态的边界与协作工作流变化采用 modify，不需要新入口或总控模式。"
+    },
+    {
+      "id": "zh_two_windows_explain",
+      "prompt": "解释两个 Codex 窗口与 Git worktree 的区别，这次只要简短说明，不执行也不保存任务。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "提及多窗口并不等于跨会话实施；单次解释不触发编排。"
+    },
+    {
+      "id": "zh_peer_version_lookup",
+      "prompt": "只核对这两个分支是否包含同一个接口提交并告诉我结果，暂时不实施、不建立或续接任务。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "局部只读版本检查不因涉及两个区域自动触发 longtask。"
+    },
+    {
+      "id": "zh_peer_window_creation",
+      "prompt": "这个项目已有批准架构但没有当前检查点。请用 longtask 把跨会话实施按领域拆分，为每个独立工作树建立并命名任务窗口，把各自可写范围、接口依赖和验收派发过去；不要设常驻总控，也不要改变架构目标。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "已有架构的跨会话实施组织从 continue 初始化状态；原生窗口创建是协作行为而非新模式。"
+    },
+    {
+      "id": "zh_rename_window_only",
+      "prompt": "把当前 Codex 会话名称改成 SDK 接口检查。这次仅修改会话标题，不需要代码实施或跨会话工作编排。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "独立的会话改名由原生工具完成，不因命名能力自动启用长任务编排。"
+    },
+    {
       "id": "zh_bounded_review",
       "prompt": "现在只审查这个二十行补丁并报告问题，不需要创建持久任务或跨会话交接。",
       "should_trigger": false,
