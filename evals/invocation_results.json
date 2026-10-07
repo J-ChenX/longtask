@@ -2,8 +2,8 @@
   "schema_version": 3,
   "evaluation": {
     "method": "Independent prompt-only classification of frozen current skill metadata and entry contracts; expected labels withheld",
-    "evaluator": "/root/python314_invocation independent subagent",
-    "evaluated_at": "2026-10-07T17:53:19.854341+00:00",
+    "evaluator": "/root/staged_invocation independent subagent",
+    "evaluated_at": "2026-10-07T18:27:16.752638+00:00",
     "assurance": "unattested_classification",
     "model": "unrecorded",
     "harness": "Isolated subagent restricted to frozen skill inputs and id/prompt corpus; no native host execution",
@@ -12,8 +12,8 @@
     "trace_id": null
   },
   "inputs": {
-    "corpus_sha256": "2df35a909066fcd0cd190c9891c7543e18e2c57bd86a36b614688e14bc02dfc1",
-    "discovery_surface_sha256": "5d2c72561aeff00deb14a5f9a76e95a075f0dcf0fad5c867b195abb3b9c2b80f",
+    "corpus_sha256": "2a9e4c512f0b279d4d2578f475c2d7ea0d9b434823e79c7a2e345e826d962f83",
+    "discovery_surface_sha256": "b922345dd03ea2ab0c218c182350162b00cf75cbb9afe33044caaf336ad8e6eb",
     "runner_sha256": "b920e34a64ebe649ace3ec42d2a1e099f70f58d1a53cddbb2271d670728ba6fc"
   },
   "results": [
@@ -234,6 +234,26 @@
     },
     {
       "id": "zh_bounded_review",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "staged_single_conversation_project",
+      "selected": true,
+      "entry": "setup"
+    },
+    {
+      "id": "main_progress_child_feedback",
+      "selected": true,
+      "entry": "continue"
+    },
+    {
+      "id": "chinese_commit_text_only",
+      "selected": false,
+      "entry": null
+    },
+    {
+      "id": "staging_concept_only",
       "selected": false,
       "entry": null
     }
