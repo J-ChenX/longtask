@@ -1,0 +1,33 @@
+name: 缺陷报告
+description: 报告可复现的技能、状态工具或文档问题。
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: 请搜索已有问题并脱敏样本。安全漏洞请按 SECURITY.md 私下报告。
+  - type: input
+    id: version
+    attributes:
+      label: 版本与环境
+      description: 提交或归档摘要、Codex 版本、Python 版本及操作系统。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 最小复现
+      description: 提供具体请求、命令及必要的脱敏输入。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为与实际行为
+      description: 说明预期依据，以及实际出现的问题。
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 验证与补充证据
+      description: 可提供退出状态、错误输出或相关文档链接。不要上传私人 trace 或秘密。

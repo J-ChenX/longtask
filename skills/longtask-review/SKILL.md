@@ -1,6 +1,8 @@
 ---
 name: longtask-review
 description: 对 longtask 实现或文档执行独立、证据绑定的审查。除非用户明确要求修复发现，否则审查为只读。
+license: MIT
+compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
   version: "3.0.0"
 ---

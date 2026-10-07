@@ -825,7 +825,7 @@ def parse_yaml_scalar(raw: str) -> str | None:
             return None
         return parsed if isinstance(parsed, str) else None
     if value[0] == "'":
-        if len(value) < 2 or value[-1] != "'":
+        if not re.fullmatch(r"'(?:[^']|'')*'", value):
             return None
         return value[1:-1].replace("''", "'")
     return value
@@ -1053,6 +1053,7 @@ def check_skill(path: Path, expected_name: str, errors: list[str]) -> None:
         return
     allowed = {"name", "description", "license", "compatibility", "metadata", "allowed-tools"}
     in_metadata = False
+    seen: set[str] = set()
     for number, line in enumerate(match.group(1).splitlines(), start=2):
         if "\t" in line:
             fail(errors, f"tab indentation in {path.relative_to(ROOT)} frontmatter line {number}")
@@ -1063,12 +1064,21 @@ def check_skill(path: Path, expected_name: str, errors: list[str]) -> None:
                 fail(errors, f"unsupported YAML structure in {path.relative_to(ROOT)} line {number}")
             elif parse_yaml_scalar(line.split(":", 1)[1]) is None:
                 fail(errors, f"invalid quoted scalar in {path.relative_to(ROOT)} line {number}")
+            else:
+                key = "metadata." + line.strip().split(":", 1)[0]
+                if key in seen:
+                    fail(errors, f"duplicate frontmatter field in {path.relative_to(ROOT)}: {key}")
+                seen.add(key)
             continue
         field = re.match(r"^([A-Za-z_][\w-]*):(?:\s*.*)?$", line)
         if not field or field.group(1) not in allowed:
             fail(errors, f"invalid frontmatter field in {path.relative_to(ROOT)} line {number}")
             in_metadata = False
         else:
+            key = field.group(1)
+            if key in seen:
+                fail(errors, f"duplicate frontmatter field in {path.relative_to(ROOT)}: {key}")
+            seen.add(key)
             raw_value = line.split(":", 1)[1]
             if field.group(1) != "metadata" and parse_yaml_scalar(raw_value) is None:
                 fail(errors, f"invalid quoted scalar in {path.relative_to(ROOT)} line {number}")
@@ -1079,6 +1089,11 @@ def check_skill(path: Path, expected_name: str, errors: list[str]) -> None:
         fail(errors, f"{path.relative_to(ROOT)} has a non-conforming skill name")
     if data.get("metadata.version") != SKILL_VERSION:
         fail(errors, f"{path.relative_to(ROOT)} metadata.version should be {SKILL_VERSION}")
+    if data.get("license") != "MIT":
+        fail(errors, f"{path.relative_to(ROOT)} license should be MIT (project convention)")
+    compatibility = data.get("compatibility", "")
+    if not compatibility or len(compatibility) > 500:
+        fail(errors, f"{path.relative_to(ROOT)} compatibility must contain 1-500 characters")
     if not data.get("description"):
         fail(errors, f"{path.relative_to(ROOT)} is missing a description")
     elif len(data["description"]) > 1024:
@@ -1086,6 +1101,54 @@ def check_skill(path: Path, expected_name: str, errors: list[str]) -> None:
     body = text[match.end():].lstrip()
     if not body.startswith("# "):
         fail(errors, f"{path.relative_to(ROOT)} body must start with an H1 heading")
+
+
+def check_skill_interface(path: Path, expected_name: str, errors: list[str]) -> None:
+    """Check this project's flat UI/policy YAML profile without runtime dependencies.
+
+    This is a repository convention, not a general-purpose Codex YAML parser.
+    """
+    relative = path.relative_to(ROOT)
+    if not path.is_file():
+        fail(errors, f"missing skill interface: {relative}")
+        return
+    values: dict[str, str] = {}
+    sections: set[str] = set()
+    section = ""
+    for number, line in enumerate(read_text(path).splitlines(), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if line in ("interface:", "policy:"):
+            section = line[:-1]
+            if section in sections:
+                fail(errors, f"duplicate interface section in {relative}: {section}")
+            sections.add(section)
+            continue
+        match = re.fullmatch(r"  ([a-z_]+): (.+)", line)
+        if not match or not section:
+            fail(errors, f"unsupported interface YAML in {relative} line {number}")
+            continue
+        key = f"{section}.{match.group(1)}"
+        raw = match.group(2)
+        value = parse_yaml_scalar(raw)
+        if key in values or value is None:
+            fail(errors, f"duplicate or invalid interface value in {relative}: {key}")
+        if section == "interface" and not raw.startswith(('"', "'")):
+            fail(errors, f"interface strings must be quoted in {relative}: {key}")
+        if key == "policy.allow_implicit_invocation" and raw not in ("true", "false"):
+            fail(errors, f"invocation policy must be a YAML boolean in {relative}")
+        values[key] = value or ""
+    for field in ("display_name", "short_description", "default_prompt"):
+        if not values.get(f"interface.{field}", "").strip():
+            fail(errors, f"{relative} lacks interface.{field}")
+    short = values.get("interface.short_description", "")
+    if short and not 25 <= len(short) <= 64:
+        fail(errors, f"{relative} short_description must contain 25-64 characters (project convention)")
+    prompt = values.get("interface.default_prompt", "")
+    if not re.search(r"\$" + re.escape(expected_name) + r"(?![a-z0-9-])", prompt):
+        fail(errors, f"{relative} default_prompt must invoke ${expected_name}")
+    if values.get("policy.allow_implicit_invocation") != "true":
+        fail(errors, f"{relative} must preserve implicit invocation (project convention)")
 
 
 def check_disclosure_graph(errors: list[str]) -> None:
@@ -1522,6 +1585,8 @@ def main(argv: list[str] | None = None) -> int:
     check_skill(ROOT / "skills" / "longtask" / "SKILL.md", "longtask", errors)
     for name in SKILL_NAMES:
         check_skill(ROOT / "skills" / name / "SKILL.md", name, errors)
+    for name in ("longtask", *SKILL_NAMES):
+        check_skill_interface(ROOT / "skills" / name / "agents" / "openai.yaml", name, errors)
     check_disclosure_graph(errors)
     check_portable_markdown_paths(ROOT, errors)
     for legacy in ("setup", "continue", "review", "modify", "retrofit"):

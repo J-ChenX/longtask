@@ -446,7 +446,7 @@ class ValidatorTests(unittest.TestCase):
                 stack.enter_context(mock.patch.object(VALIDATOR, "ROOT", root))
                 stack.enter_context(mock.patch.object(VALIDATOR, "REQUIRED_FILES", ()))
                 stack.enter_context(mock.patch.object(VALIDATOR, "SKILL_NAMES", ()))
-                for name in ("check_skill", "check_disclosure_graph", "check_metadata",
+                for name in ("check_skill", "check_skill_interface", "check_disclosure_graph", "check_metadata",
                              "check_release_archive", "check_host_results",
                              "check_invocation_results", "check_forward_results"):
                     stack.enter_context(mock.patch.object(VALIDATOR, name))
@@ -481,7 +481,7 @@ class ValidatorTests(unittest.TestCase):
                     stack.enter_context(mock.patch.object(VALIDATOR, "REQUIRED_FILES", ()))
                     stack.enter_context(mock.patch.object(VALIDATOR, "SKILL_NAMES", ()))
                     stack.enter_context(mock.patch.object(VALIDATOR, "check_release_archive", return_value=binding))
-                    for name in ("check_skill", "check_disclosure_graph", "check_portable_markdown_paths",
+                    for name in ("check_skill", "check_skill_interface", "check_disclosure_graph", "check_portable_markdown_paths",
                                  "check_metadata", "check_invocation_results", "check_forward_results",
                                  "check_markdown_links"):
                         stack.enter_context(mock.patch.object(VALIDATOR, name))
@@ -877,10 +877,12 @@ class ValidatorTests(unittest.TestCase):
             self.assertTrue(any("H1" in error for error in errors))
 
     def test_frontmatter_allows_apostrophes_and_rejects_unclosed_quotes(self) -> None:
+        self.assertEqual(VALIDATOR.parse_yaml_scalar("'user''s workflow'"), "user's workflow")
+        self.assertIsNone(VALIDATOR.parse_yaml_scalar("'user's workflow'"))
         with tempfile.TemporaryDirectory(dir=PROJECT) as temporary:
             path = Path(temporary) / "SKILL.md"
             path.write_text(
-                "---\nname: temporary\ndescription: user's durable workflow\nmetadata:\n  version: 3.0.0\n---\n# Temporary\n",
+                "---\nname: temporary\ndescription: user's durable workflow\nlicense: MIT\ncompatibility: Codex with Python 3.14+\nmetadata:\n  version: 3.0.0\n---\n# Temporary\n",
                 encoding="utf-8",
             )
             errors: list[str] = []
@@ -893,6 +895,43 @@ class ValidatorTests(unittest.TestCase):
             errors = []
             VALIDATOR.check_skill(path, "temporary", errors)
             self.assertTrue(any("invalid quoted scalar" in error for error in errors))
+
+    def test_skill_metadata_rejects_ambiguous_keys_and_oversized_compatibility(self) -> None:
+        with tempfile.TemporaryDirectory(dir=PROJECT) as temporary:
+            path = Path(temporary) / "SKILL.md"
+            base = ("---\nname: temporary\ndescription: Durable workflow\nlicense: MIT\n"
+                    "compatibility: Codex with Python 3.14+\nmetadata:\n  version: \"3.0.0\"\n---\n# Temporary\n")
+            for text in (base.replace("license: MIT", "license: MIT\nlicense: Apache-2.0"),
+                         base.replace('  version: "3.0.0"', '  version: "3.0.0"\n  version: "3.0.0"'),
+                         base.replace("Codex with Python 3.14+", "x" * 501)):
+                with self.subTest(text=text):
+                    path.write_text(text, encoding="utf-8")
+                    errors = []
+                    VALIDATOR.check_skill(path, "temporary", errors)
+                    self.assertTrue(errors)
+
+    def test_skill_interface_rejects_wrong_invocation_and_string_policy(self) -> None:
+        with tempfile.TemporaryDirectory(dir=PROJECT) as temporary:
+            path = Path(temporary) / "openai.yaml"
+            base = ("interface:\n  display_name: \"Temporary\"\n"
+                    "  short_description: \"Restore a task with version-bound evidence\"\n"
+                    "  default_prompt: \"Use $temporary to restore this task.\"\n"
+                    "policy:\n  allow_implicit_invocation: true\n")
+            path.write_text(base, encoding="utf-8")
+            errors = []
+            VALIDATOR.check_skill_interface(path, "temporary", errors)
+            self.assertEqual(errors, [])
+            for text in (base.replace("$temporary", "$temporary-other"),
+                         base.replace("allow_implicit_invocation: true", 'allow_implicit_invocation: "true"'),
+                         base.replace('display_name: "Temporary"', 'display_name: "Temporary"\n  display_name: "Other"'),
+                         base.replace('display_name: "Temporary"', 'display_name: "Unclosed'),
+                         base.replace('display_name: "Temporary"', "display_name: 'Temporary'broken'"),
+                         base.replace("  default_prompt:", "  unused_prompt:")):
+                with self.subTest(text=text):
+                    path.write_text(text, encoding="utf-8")
+                    errors = []
+                    VALIDATOR.check_skill_interface(path, "temporary", errors)
+                    self.assertTrue(errors)
 
     def test_markdown_heading_fragments_must_exist(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -1,20 +1,20 @@
 {
   "schema_version": 3,
   "evaluation": {
-    "method": "Independent prompt-only classification of current skill descriptions and entry contracts; expected labels withheld",
-    "evaluator": "invocation_check independent subagent",
-    "evaluated_at": "2026-10-04T08:33:47.065186+00:00",
+    "method": "Independent prompt-only classification of frozen current skill metadata and entry contracts; expected labels withheld",
+    "evaluator": "/root/python314_invocation independent subagent",
+    "evaluated_at": "2026-10-07T17:53:19.854341+00:00",
     "assurance": "unattested_classification",
     "model": "unrecorded",
-    "harness": "Isolated subagent with stripped id/prompt corpus; final single classification, no native host execution",
+    "harness": "Isolated subagent restricted to frozen skill inputs and id/prompt corpus; no native host execution",
     "repetitions": 1,
     "trace_available": false,
     "trace_id": null
   },
   "inputs": {
     "corpus_sha256": "2df35a909066fcd0cd190c9891c7543e18e2c57bd86a36b614688e14bc02dfc1",
-    "discovery_surface_sha256": "a771bbd7f90ef5a28ffcddc7bf14270c9d3c6751d38928da7f5bf22233ff5769",
-    "runner_sha256": "7c17580414c777ca17880a04c4b55ff30de3752f639338c7d7f8072bbb2a2608"
+    "discovery_surface_sha256": "5d2c72561aeff00deb14a5f9a76e95a075f0dcf0fad5c867b195abb3b9c2b80f",
+    "runner_sha256": "b920e34a64ebe649ace3ec42d2a1e099f70f58d1a53cddbb2271d670728ba6fc"
   },
   "results": [
     {

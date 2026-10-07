@@ -1,0 +1,7 @@
+interface:
+  display_name: "Longtask · 独立审查"
+  short_description: "按风险独立审查当前实现、文档和版本绑定证据，默认只读"
+  default_prompt: "使用 $longtask-review 独立审查当前实现与证据，报告可复现的发现。"
+
+policy:
+  allow_implicit_invocation: true

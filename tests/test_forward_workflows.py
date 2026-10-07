@@ -705,7 +705,11 @@ class ForwardWorkflowTests(unittest.TestCase):
                 "package", "--root", str(self.root), "--expected-revision", "0",
                 "--data", json.dumps(package), "--actor", "safe", ok=False,
             )
-            self.assertIn("cannot inspect active directory write-set safely", rejected["error"])
+            self.assertRegex(rejected["error"],
+                             r"(?:cannot inspect active directory write-set safely|active directory write-set contains a symlink alias)")
+            persisted = json.loads((self.root / ".longtask/state.json").read_text())
+            self.assertEqual((persisted["revision"], persisted["event_revision"]), (0, 0))
+            self.assertEqual(persisted["work_packages"], [])
         finally:
             loop.unlink(missing_ok=True)
 

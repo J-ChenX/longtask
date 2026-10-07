@@ -2373,7 +2373,11 @@ class LongtaskStateTests(unittest.TestCase):
                 "package", "--root", str(self.root), "--expected-revision", "0",
                 "--data", json.dumps(package), "--actor", "worker", ok=False,
             )
-            self.assertIn("cannot inspect active directory write-set safely", rejected["error"])
+            self.assertRegex(rejected["error"],
+                             r"(?:cannot inspect active directory write-set safely|active directory write-set contains a symlink alias)")
+            _, persisted = STATE.load_state(self.root)
+            self.assertEqual((persisted["revision"], persisted["event_revision"]), (0, 0))
+            self.assertEqual(persisted["work_packages"], [])
         finally:
             loop.unlink(missing_ok=True)
 
@@ -2396,9 +2400,11 @@ class LongtaskStateTests(unittest.TestCase):
         try:
             routed = self.route()
             self.assertEqual(routed["entry"], "error")
-            self.assertIn("cannot inspect active directory write-set safely", routed["reason"])
+            self.assertRegex(routed["reason"],
+                             r"(?:cannot inspect active directory write-set safely|active directory write-set contains a symlink alias)")
             rejected_validate = self.run_cli("validate", "--root", str(self.root), ok=False)
-            self.assertIn("cannot inspect active directory write-set safely", rejected_validate["error"])
+            self.assertRegex(rejected_validate["error"],
+                             r"(?:cannot inspect active directory write-set safely|active directory write-set contains a symlink alias)")
             operations = [
                 ("checkpoint", "--root", str(self.root), "--expected-revision", "1"),
                 (
@@ -2417,7 +2423,8 @@ class LongtaskStateTests(unittest.TestCase):
             for arguments in operations:
                 with self.subTest(command=arguments[0]):
                     rejected = self.run_cli(*arguments, ok=False)
-                    self.assertIn("cannot inspect active directory write-set safely", rejected["error"])
+                    self.assertRegex(rejected["error"],
+                             r"(?:cannot inspect active directory write-set safely|active directory write-set contains a symlink alias)")
             _, persisted = STATE.load_state(self.root)
             self.assertEqual((persisted["revision"], persisted["event_revision"]), (1, 1))
         finally:
