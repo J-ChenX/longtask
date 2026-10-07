@@ -308,6 +308,34 @@
       "should_trigger": false,
       "expected_entry": null,
       "rationale": "单次会话内的有界只读审查不应触发 longtask。"
+    },
+    {
+      "id": "staged_single_conversation_project",
+      "prompt": "从空目录实现一个会跨多个验收步骤的本地导入工具，用 longtask 保存必要状态；能在当前对话完成就完成，先走通核心链路，再补齐功能与约定展示，确需移交时按步骤接着做。",
+      "should_trigger": true,
+      "expected_entry": "setup",
+      "rationale": "明确请求新项目的分段验收与可恢复编排，从 setup 开始；目标层次不增加入口模式。"
+    },
+    {
+      "id": "main_progress_child_feedback",
+      "prompt": "继续当前跨会话导入项目：已有架构和有效 longtask 检查点。解析窗口已交付固定提交，展示窗口仍在讨论可选配色。核对解析产物后推进当前独立集成验收，不要等所有子窗口结束，也别被配色消息带离主目标。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "有效任务继续消费子窗口结果并推进主线，从本地断点续接。"
+    },
+    {
+      "id": "chinese_commit_text_only",
+      "prompt": "把这条 commit 说明改写成中文：fix: handle empty input。只返回文本，不提交代码、不建立持久任务。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "单次文本改写不因提交语言偏好触发任务编排。"
+    },
+    {
+      "id": "staging_concept_only",
+      "prompt": "简短解释按模块拆分与按步骤移交有什么区别，以及骨架、血肉、皮毛各指什么。这次只解释，不执行也不保存任务。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "概念解释不触发多会话实施或检查点。"
     }
   ]
 }

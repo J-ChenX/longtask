@@ -1,6 +1,6 @@
 {
   "schema_version": 7,
-  "evaluated_at": "2026-10-07T17:54:32.700170Z",
+  "evaluated_at": "2026-10-07T18:28:19.872417Z",
   "profile": {
     "audience": "personal",
     "supported_host": "Codex CLI",
@@ -10,8 +10,8 @@
   },
   "release": {
     "archive": "dist/longtask-3.0.0.zip",
-    "archive_sha256": "08963c752dde8b954b6ecf21458e6144b69335f0d40929dfbeddf7edcfecf206",
-    "source_tree_sha256": "9c62c2053e268afe78aee9bb8c3a14927d7aa9af6851d866836f5384ba9a05f9",
+    "archive_sha256": "437937505b28f98d290c6082a992a43e84ad001d1fd4be4a72949c90463c64d4",
+    "source_tree_sha256": "42197ab8fbf2f11faeb2f5093c2045ca6eab3c103036adc0f9aa41c4828f193b",
     "file_count": 56,
     "version": "3.0.0"
   },
@@ -28,7 +28,7 @@
       "plugin_id": "longtask",
       "installed_version": "3.0.0",
       "manifest_preflight": "unable_to_verify",
-      "validated_archive_sha256": "08963c752dde8b954b6ecf21458e6144b69335f0d40929dfbeddf7edcfecf206",
+      "validated_archive_sha256": "437937505b28f98d290c6082a992a43e84ad001d1fd4be4a72949c90463c64d4",
       "workflow_trace_archive_sha256": null
     },
     "assertions": [
@@ -360,7 +360,7 @@
     "run_id": null,
     "trace_id": null,
     "trace_sha256": null,
-    "archive_sha256": "08963c752dde8b954b6ecf21458e6144b69335f0d40929dfbeddf7edcfecf206",
+    "archive_sha256": "437937505b28f98d290c6082a992a43e84ad001d1fd4be4a72949c90463c64d4",
     "reason": "Current source-pinned candidate verified and extracted using its expected local SHA-256, then passed installed-artifact self-check in a temporary directory. No external publisher authentication, live installation, or remaining recovery drill is claimed."
   },
   "privacy": {
