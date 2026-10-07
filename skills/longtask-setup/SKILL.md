@@ -1,6 +1,8 @@
 ---
 name: longtask-setup
 description: 为真正全新或空白的项目初始化 longtask，发现预期结果，并建立架构和可验证工作包。不要用于已有实现；此时应使用 longtask-retrofit。
+license: MIT
+compatibility: Designed for Codex. Requires Python 3.10+; install the complete longtask plugin.
 metadata:
   version: "3.0.0"
 ---

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Longtask · 接入已有项目"
+  short_description: "为缺少架构与恢复状态的已有代码建立当前知识、合同和检查点"
+  default_prompt: "使用 $longtask-retrofit 接入这个已有项目，区分观察、推断与批准意图。"
+
+policy:
+  allow_implicit_invocation: true

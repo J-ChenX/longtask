@@ -1,6 +1,8 @@
 ---
 name: longtask-modify
 description: 修改现有 longtask 的架构、模块图、状态协议、工作流或关键技术，同时保留证据和可恢复性。
+license: MIT
+compatibility: Designed for Codex. Requires Python 3.10+; install the complete longtask plugin.
 metadata:
   version: "3.0.0"
 ---

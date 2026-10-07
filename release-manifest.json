@@ -16,7 +16,7 @@
   ],
   "directories": [
     ".codex-plugin",
-    "docs/modules",
+    "docs",
     "evals",
     "references",
     "scripts",

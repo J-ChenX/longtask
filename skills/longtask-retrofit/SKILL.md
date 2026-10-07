@@ -1,6 +1,8 @@
 ---
 name: longtask-retrofit
 description: 为既缺少可用 longtask 状态、又缺少持久架构的已有代码库建立状态与文档，同时区分已观察实现、推断意图和已批准意图。
+license: MIT
+compatibility: Designed for Codex. Requires Python 3.10+; install the complete longtask plugin.
 metadata:
   version: "3.0.0"
 ---

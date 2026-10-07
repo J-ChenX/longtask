@@ -1,6 +1,8 @@
 ---
 name: longtask
 description: 管理需要跨上下文恢复、多个可独立验收工作包或跨会话交接的编码任务。单次会话可完成的小改动、解释或审查不自动启用。
+license: MIT
+compatibility: Designed for Codex. Requires Python 3.10+; install the complete longtask plugin.
 metadata:
   version: 3.0.0
 ---

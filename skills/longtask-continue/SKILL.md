@@ -1,6 +1,8 @@
 ---
 name: longtask-continue
 description: 在中断、上下文压缩、交接或后续会话中，从已校验的当前 v3 状态恢复 longtask；也用于在已有持久架构但没有未完成检查点时初始化 v3 状态。
+license: MIT
+compatibility: Designed for Codex. Requires Python 3.10+; install the complete longtask plugin.
 metadata:
   version: "3.0.0"
 ---

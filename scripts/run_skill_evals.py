@@ -16,6 +16,11 @@ ENTRIES = {"setup", "retrofit", "continue", "modify", "review"}
 DISCOVERY_FILES = (
     "SKILL.md",
     "skills/longtask/agents/openai.yaml",
+    "skills/longtask-setup/agents/openai.yaml",
+    "skills/longtask-continue/agents/openai.yaml",
+    "skills/longtask-review/agents/openai.yaml",
+    "skills/longtask-modify/agents/openai.yaml",
+    "skills/longtask-retrofit/agents/openai.yaml",
     ".codex-plugin/plugin.json",
     "skills/longtask/SKILL.md",
     "skills/longtask-setup/SKILL.md",
