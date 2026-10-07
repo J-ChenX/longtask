@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/J-ChenX/longtask/actions/workflows/ci.yml/badge.svg)](https://github.com/J-ChenX/longtask/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg)](https://www.python.org/downloads/)
+[![Python 3.14+](https://img.shields.io/badge/Python-3.14%2B-3776AB.svg)](https://www.python.org/downloads/)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-475569.svg)](https://agentskills.io/specification)
 
 longtask 是面向 Codex 个人使用的开源 Skill 插件。它把当前项目知识、未完成工作和版本绑定证据分开保存，让新会话能恢复目标、判断哪些结果仍然有效，并继续完成可验收的工作。
@@ -22,7 +22,7 @@ longtask 是面向 Codex 个人使用的开源 Skill 插件。它把当前项目
 
 ## 快速开始
 
-需要 **Codex** 与 **Python 3.10+**；运行脚本仅使用 Python 标准库。Git 可提供版本证据与工作树隔离。
+需要 **Codex** 与 **Python 3.14+**；运行脚本仅使用 Python 标准库。Git 可提供版本证据与工作树隔离。
 
 ### 1. 获取并验证完整插件
 
@@ -101,7 +101,7 @@ CI 徽章仅表示仓库检查状态。核心发布与收益资格分别由 `rel
 
 ## 本地验证
 
-在仓库根目录运行：
+在仓库根目录使用 Python 3.14+ 运行；若使用 mise → uv → Python 管理环境，按[贡献指南中的 uv 命令](https://github.com/J-ChenX/longtask/blob/main/.github/CONTRIBUTING.md#开发环境)显式选择 3.14：
 
 ```bash
 python3 scripts/validate_longtask.py

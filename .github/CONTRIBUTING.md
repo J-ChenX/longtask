@@ -10,7 +10,7 @@
 
 ## 开发环境
 
-需要 Git 与 Python 3.10+；项目运行时与测试使用标准库，无需安装第三方 Python 包。
+需要 Git 与 Python 3.14+；项目运行时与测试使用标准库，无需安装第三方 Python 包。
 
 ```bash
 git clone https://github.com/J-ChenX/longtask.git
@@ -19,6 +19,18 @@ git switch -c codex/your-change
 ```
 
 外部贡献者可先 fork 仓库。修改前读取 [AGENTS.md](../AGENTS.md)与[仓库维护](../docs/仓库维护.md)，再按影响范围阅读架构、模块和权威合同。
+
+若本机由 mise 管理 uv、由 uv 管理 Python，使用现有 mise 环境中的 uv 显式选择解释器：
+
+```bash
+uv run --python 3.14 python --version
+uv run --python 3.14 python scripts/validate_longtask.py
+uv run --python 3.14 python -m unittest discover -s tests -v
+uv run --python 3.14 python scripts/run_skill_evals.py --results evals/invocation_results.json
+uv run --python 3.14 python scripts/run_forward_evals.py
+```
+
+这与下面的直接 Python 命令等价。uv 尚未在当前目录激活时，可以通过 `mise exec uv@<已安装版本> -- uv run --python 3.14 python …` 按次调用；无需为此修改全局工具配置。参见 [uv 的解释器选择](https://docs.astral.sh/uv/guides/scripts/#using-different-python-versions)与 [mise exec](https://mise.jdx.dev/cli/exec.html)。
 
 ## 验证变更
 
