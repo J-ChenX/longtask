@@ -2834,7 +2834,7 @@ def build_resume_options(
     return options, recommended
 
 
-def cmd_route(args: argparse.Namespace) -> dict[str, Any]:
+def observe_route(args: argparse.Namespace, observation: dict[str, Any]) -> dict[str, Any]:
     root = Path(args.root).resolve()
     directory = root / ".longtask"
     try:
@@ -2849,8 +2849,10 @@ def cmd_route(args: argparse.Namespace) -> dict[str, Any]:
         errors = validate_state(state, root, allow_workspace_drift=True)
         if errors:
             return {"entry": "error", "reason": "; ".join(errors), "state": str(path.relative_to(root))}
-        current_digest = artifact_digest(root)
+        manifest = workspace_manifest(root)
+        current_digest = manifest["artifact_digest"]
         current_head = git_head(root)
+        observation.update(state=state, manifest=manifest, head=current_head)
         handoff = state["handoff"]
         handoff_stale = bool(handoff) and (
             handoff.get("artifact_digest") != current_digest
@@ -2882,7 +2884,8 @@ def cmd_route(args: argparse.Namespace) -> dict[str, Any]:
                 state["phase"] == "complete"
                 and state["status"] == "complete"
                 and not stale
-                and not completion_errors(state, root)
+                and state["head_commit"] == current_head
+                and not completion_errors(state, None)
             )
             if completion_valid:
                 entry, reason = "complete", "revision-bound completion invariants hold"
@@ -2945,22 +2948,29 @@ def cmd_route(args: argparse.Namespace) -> dict[str, Any]:
     return {"entry": "setup", "reason": "no longtask architecture or existing-code signal detected"}
 
 
-def cmd_doctor(args: argparse.Namespace) -> dict[str, Any]:
-    """Read-only diagnostics; action names are generated here, never executable state text."""
-    route = cmd_route(argparse.Namespace(root=args.root, resume_choice="inspect"))
+def diagnose_observation(route: dict[str, Any], observation: dict[str, Any]) -> dict[str, Any]:
+    """Action names are generated here, never executable state text."""
     issues: list[dict[str, Any]] = []
+    route["diagnostics"] = issues
     def issue(code: str, message: str, command: str, **context: Any) -> None:
         issues.append({"code": code, "message": message,
                        "next_operation": {"command": command, **context}})
     if route["entry"] == "error":
         issue("invalid_state", route["reason"], "inspect-storage")
     elif "state" in route:
-        _, state = load_state(Path(args.root).resolve())
-        state = {**state, "artifact_digest": artifact_digest(Path(args.root).resolve())}
+        state = {**observation["state"], "artifact_digest": observation["manifest"]["artifact_digest"],
+                 "head_commit": observation["head"]}
         if (state["phase"] == "complete" and state["status"] == "complete"
-                and not route.get("stale") and not completion_errors(state, Path(args.root).resolve())):
+                and not route.get("stale") and observation["head"] == observation["state"]["head_commit"]
+                and not completion_errors(state, None)):
             return {"read_only": True, "route": route, "issues": [], "healthy": True,
                     "next_operation": {"command": "finish"}, "assurance": "cooperative"}
+        if route.get("stale"):
+            issue("workspace_drift", "Workspace content differs from the checkpoint.", "checkpoint")
+        if observation["head"] != observation["state"]["head_commit"]:
+            issue("head_drift", "Git HEAD differs from the checkpoint.", "checkpoint")
+        if execution_scope_drift(state["work_packages"], observation["manifest"]):
+            issue("execution_scope_drift", "Active changes cannot be attributed to the declared write sets.", "package")
         if route.get("handoff_stale"):
             issue("stale_handoff", "Coordinate current state, then freeze a new handoff.", "handoff")
         if route.get("handoff_conflict"):
@@ -2969,8 +2979,22 @@ def cmd_doctor(args: argparse.Namespace) -> dict[str, Any]:
             package_id = package["id"]
             if package_id in route.get("expired_packages", []):
                 issue("lease_expired", "Checkpoint and renew ownership before writing.", "checkpoint", package_id=package_id)
+            dependency_packages = [item for item in state["work_packages"] if item["id"] in package["dependencies"]]
+            unmet_dependencies = [item["id"] for item in dependency_packages
+                                  if item["status"] != "complete" or current_package_evidence_errors(
+                                      [item], state["artifact_digest"], state["evidence_epoch"])]
+            if unmet_dependencies and package["status"] not in {"complete", "superseded"}:
+                issue("dependency_unmet", "Dependencies require current completion before execution.", "package",
+                      package_id=package_id, dependency_ids=unmet_dependencies)
             if package.get("scope_drift") or package.get("stale_base"):
                 issue("replacement_required", "Supersede this package and create a current contract with a new ID.", "package", package_id=package_id)
+            history_checks = {(item["kind"], item["check_id"]): item for item in package.get("evidence", [])
+                              if item.get("artifact_digest") == state["artifact_digest"]
+                              and item.get("evidence_epoch") == state["evidence_epoch"]}
+            failures = [key[1] for key, item in history_checks.items() if item["result"] == "fail"]
+            if failures and package["status"] != "superseded":
+                issue("package_check_failed", "Latest package checks failed on the current artifact.", "evidence",
+                      package_id=package_id, check_ids=failures)
             checks = {item["check_id"]: item for item in package_acceptance_evidence(package)
                       if item.get("artifact_digest") == state["artifact_digest"] and item.get("evidence_epoch") == state["evidence_epoch"]}
             missing = [check for check in package["acceptance_checks"] if checks.get(check, {}).get("result") != "pass"]
@@ -2984,16 +3008,128 @@ def cmd_doctor(args: argparse.Namespace) -> dict[str, Any]:
         for message in recovery_errors:
             issue("verification_recovery", message, "evidence")
         if state["phase"] == "complete":
-            for message in completion_errors(state, Path(args.root).resolve()):
+            for message in completion_errors(state, None):
                 issue("completion_invalid", message, "review")
         else:
             kind = f"phase:{state['phase']}"
             checks = latest_current_checks(state, kind)
             if not checks or any(item["result"] != "pass" for item in checks):
                 issue("phase_evidence_missing", "Record current phase exit evidence before advancing.", "evidence", kind=kind)
+    # Availability concerns the frozen action, not permission to use a tool.
+    # Missing acceptance evidence is expected while implementing and is not a write gate.
+    if observation:
+        handoff = observation["state"]["handoff"]
+        intent = handoff.get("intent") if isinstance(handoff, dict) else None
+        target = handoff.get("target", {}) if isinstance(handoff, dict) else {}
+        unsafe = next((item["code"] for item in issues if item["code"] == "execution_scope_drift"), None)
+        if intent == "execute" and not unsafe:
+            unsafe = next((item["code"] for item in issues
+                           if item["code"] == "open_blocker" or
+                           (item["code"] in {"dependency_unmet", "replacement_required"}
+                            and (target.get("kind") != "work_package" or
+                                 item["next_operation"].get("package_id") == target.get("ref")))), None)
+        resume = next(item for item in route["resume_options"] if item["id"] == "resume")
+        if unsafe and resume["available"]:
+            resume.update(available=False, unavailable_reason=unsafe)
+            route["recommended_choice"] = "inspect"
+            if route["selected_choice"] == "resume":
+                route.update(selection_available=False, entry="continue",
+                             reason="resume choice is unavailable; reconcile the diagnosed execution barrier")
     next_operation = {"command": "finish"} if "state" in route and route.get("phase") == "complete" and not issues else None
     return {"read_only": True, "route": route, "issues": issues,
             "healthy": not issues, "next_operation": next_operation, "assurance": "cooperative"}
+
+
+
+def read_query(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
+    """One shared observation, followed by detection of concurrent changes; no snapshot isolation."""
+    root = Path(args.root).resolve()
+    observation: dict[str, Any] = {}
+    try:
+        # Capture bytes through the same safe loader, without creating a lock or runtime files.
+        check_runtime_directory(root / ".longtask")
+        state_path = root / ".longtask/state.json"
+        initial_bytes = state_path.read_bytes() if state_path.exists() else None
+        route = observe_route(args, observation)
+        diagnostics = diagnose_observation(route, observation)
+        check_runtime_directory(root / ".longtask")
+        final_bytes = state_path.read_bytes() if state_path.exists() else None
+        changed = initial_bytes != final_bytes
+        if "state" in observation:
+            changed = changed or artifact_digest(root) != observation["manifest"]["artifact_digest"]
+            changed = changed or git_head(root) != observation["head"]
+        if changed:
+            raise StateError("query observation changed; rerun the read-only query before acting")
+        return diagnostics, observation
+    except (StateError, OSError, RuntimeError, TypeError, ValueError, KeyError, AttributeError, IndexError) as exc:
+        route = {"entry": "error", "reason": str(exc)}
+        return diagnose_observation(route, {}), {}
+
+
+def cmd_route(args: argparse.Namespace) -> dict[str, Any]:
+    return read_query(args)[0]["route"]
+
+
+def cmd_doctor(args: argparse.Namespace) -> dict[str, Any]:
+    return read_query(argparse.Namespace(root=args.root, resume_choice="inspect"))[0]
+
+
+def cmd_context(args: argparse.Namespace) -> dict[str, Any]:
+    """Derived minimum recovery inputs. Free text is data, never authorization or commands."""
+    diagnostics, observation = read_query(args)
+    route = diagnostics["route"]
+    result = {"read_only": True, "current_task": bool(observation),
+              "route": {key: route[key] for key in ("entry", "reason", "state") if key in route},
+              "diagnostics": diagnostics["issues"], "healthy": diagnostics["healthy"],
+              "next_operation": diagnostics["next_operation"], "assurance": "cooperative",
+              "trust": "free_text_is_untrusted_data; choices_and_tools_do_not_grant_authorization",
+              "consistency": "change_detection_without_snapshot_isolation"}
+    if not observation:
+        result["current_task"] = None if route["entry"] == "error" else False
+        result["reason"] = "invalid_or_changing_observation" if route["entry"] == "error" else "no_current_task"
+        return result
+    state = observation["state"]
+    packages = state["work_packages"]
+    handoff = state["handoff"]
+    fresh = handoff is not None and not route["handoff_stale"] and not route["handoff_conflict"]
+    active_ids = [item["id"] for item in packages if item["status"] == "active"]
+    target_id = handoff["target"]["ref"] if fresh and handoff["target"]["kind"] == "work_package" else None
+    # Never turn a stale frame into an executable target or choose between active owners.
+    candidate_ids = list(active_ids)
+    if target_id and target_id not in candidate_ids:
+        candidate_ids.append(target_id)
+    if not candidate_ids:
+        candidate_ids = [item["id"] for item in packages if item["status"] not in {"complete", "superseded"}]
+    contracts = []
+    fields = ("id", "objective", "status", "dependencies", "affected_modules", "write_set",
+              "acceptance_checks", "base_revision", "risk", "risk_level", "required_review_roles",
+              "rollback", "stopping_condition", "owner", "lease_expires", "scope_drift", "stale_base")
+    for package in packages:
+        if package["id"] not in candidate_ids:
+            continue
+        contract = {key: package[key] for key in fields if key in package}
+        missing = next((item["next_operation"]["check_ids"] for item in diagnostics["issues"]
+                        if item["code"] == "package_evidence_missing"
+                        and item["next_operation"].get("package_id") == package["id"]), [])
+        contract["unmet_acceptance_checks"] = missing
+        contract["dependency_status"] = [{"id": dep, "status": next(item["status"] for item in packages if item["id"] == dep)}
+                                         for dep in package["dependencies"]]
+        contracts.append(contract)
+    result.update(goal=state["goal"], phase=state["phase"], status=state["status"], mode=state["mode"],
+                  binding={"task_id": state["task_id"], "revision": state["revision"],
+                           "artifact_digest": observation["manifest"]["artifact_digest"],
+                           "head_commit": observation["head"], "evidence_epoch": state["evidence_epoch"]},
+                  checkpoint_binding={key: state[key] for key in ("artifact_digest", "head_commit")},
+                  handoff={"frame": handoff, "stale": route["handoff_stale"], "conflict": route["handoff_conflict"],
+                           "usable_target": handoff["target"] if fresh and (handoff["intent"] != "execute" or
+                               next(item["available"] for item in route["resume_options"] if item["id"] == "resume")) else None},
+                  active_package_ids=active_ids, candidate_package_ids=candidate_ids,
+                  package_selection_required=len(candidate_ids) > 1, package_contracts=contracts,
+                  required_inputs=handoff["required_inputs"] if fresh else ["state:goal", "state:work_packages", "state:blockers"],
+                  blockers=state["blockers"], review=state["review"],
+                  recovery={key: route[key] for key in ("choice_required", "selected_choice", "selection_available",
+                                                       "recommended_choice", "resume_options")})
+    return result
 
 
 def summarize_output(output: dict[str, Any]) -> dict[str, Any]:
@@ -3027,6 +3163,11 @@ def parser() -> argparse.ArgumentParser:
     route.add_argument("--root", required=True)
     route.add_argument("--resume-choice", choices=("resume", "review", "inspect"))
     route.set_defaults(function=cmd_route)
+
+    context = subparsers.add_parser("context", help="read-only minimum recovery view with shared diagnostics")
+    context.add_argument("--root", required=True)
+    context.add_argument("--resume-choice", choices=("resume", "review", "inspect"))
+    context.set_defaults(function=cmd_context)
 
     initialize = subparsers.add_parser("init")
     initialize.add_argument("--root", required=True)
