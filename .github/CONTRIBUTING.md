@@ -18,7 +18,7 @@ cd longtask
 git switch -c codex/your-change
 ```
 
-外部贡献者可先 fork 仓库。修改前读取 [AGENTS.md](../AGENTS.md)与[仓库维护](../docs/仓库维护.md)，再按影响范围阅读架构、模块和权威合同。
+外部贡献者可先 fork 仓库。修改前读取 [AGENTS.md](../AGENTS.md)，按影响范围定位[仓库维护](../docs/仓库维护.md)、架构、模块和权威合同；普通措辞修正无需先展开全库文档。
 
 若本机由 mise 管理 uv、由 uv 管理 Python，使用现有 mise 环境中的 uv 显式选择解释器：
 
@@ -35,6 +35,8 @@ uv run --python 3.14 python scripts/run_forward_evals.py
 ## 验证变更
 
 仓库要求的四项检查：
+
+开发期间先运行受影响的检查，在重要变更集成后执行完整检查。本地单元测试和前向合同使用可丢弃 fixture，不接触生产服务；可在已授权变更范围内运行、修复本次引入的失败并重跑相关检查，无需逐步申请批准。真实宿主采集、安装和发布遵循各自合同。
 
 ```bash
 python3 scripts/validate_longtask.py
@@ -54,6 +56,8 @@ python3 scripts/build_release.py verify --root . --archive dist/longtask-3.0.0.z
 ```
 
 发现元数据变化须按[调用评测协议](../references/评测协议.md)重新采样，不手动重绑旧分类。宿主结果必须保留真实的保证级别：没有在当前归档上采样的场景为 `unable_to_verify`，发布门保持阻塞。评测记录的更新不等于真实执行通过。
+
+技能精简需同时核对描述的触发边界、模式资料加载与完整验收。文本体积对照只能支持字符或字节变化的声明；真实工具调用、重复读取、停止行为和成本需从宿主 trace 独立判断，不能用固定措辞检查代替。
 
 CI 校验已保存的绑定并重跑本地合同测试；它不会替你生成独立调用分类、宿主样本或正式发布证据。正式发布另外运行 `python3 scripts/validate_longtask.py --require-release-pass`，发布合同见[发布与恢复](../references/发布与恢复.md)。
 
