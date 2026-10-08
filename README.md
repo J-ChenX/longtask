@@ -72,6 +72,14 @@ flowchart LR
 
 持久文档回答“项目现在有什么、如何工作、如何验证”；`.longtask/state.json` 只支持未完成工作的续接，收尾后清除。Git 版本和 SHA-256 摘要把批准、审查和完成声明绑定到具体产物。代码描述已观察行为，已批准目标与合同定义预期行为；两者冲突时保持可见并协调。
 
+恢复时，`context` 从当前检查点生成只读视图，集中提供总目标、候选工作包、必要输入、验收缺口和诊断，不另存一份状态：
+
+```bash
+python3 scripts/longtask_state.py context --root /absolute/project --resume-choice inspect
+```
+
+状态可用性与用户授权分别判断。指令先通过简短描述发现，再按模式读取必要资料；分段交付、会话拆分等策略仅在对应决策出现时展开。
+
 ## 入口技能
 
 | 场景 | 入口 | 说明 |
@@ -115,6 +123,8 @@ python3 scripts/run_forward_evals.py
 ```
 
 输入变化后，应实际重跑对应评测并更新版本绑定记录；开发步骤见[贡献指南](https://github.com/J-ChenX/longtask/blob/main/.github/CONTRIBUTING.md)。`release-manifest.json` 是唯一发布清单，`dist/` 是可清除的构建输出。提取后的完整工件可执行 `python3 scripts/validate_longtask.py --installed` 自检。
+
+上下文资料的文本体积可用 `python3 scripts/measure_skill_context.py --mode continue --baseline /absolute/baseline` 对照；`--only-loaded --load PATH` 可测量实际选定文件。该工具只报告字符、UTF-8 字节与引用，真实执行质量和成本仍需宿主评测。
 
 ## 文档导航
 

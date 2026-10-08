@@ -13,13 +13,13 @@ metadata:
 
 ## 安全启动
 
-核对当前用户目标、适用仓库说明及 Git/工作树状态，保留无关改动。用户指定模式时采用该模式；否则运行：
+核对当前用户目标、适用仓库说明及 Git/工作树状态，保留无关改动。用户指定模式时采用该模式；需要路由或恢复信息且没有有效查询结果时运行：
 
 ```text
-python3 {skill-root}/scripts/longtask_state.py route --root {workspace-root}
+python3 {skill-root}/scripts/longtask_state.py context --root {workspace-root}
 ```
 
-有效状态的恢复动作依据当前请求和仍有效的会话授权选择，再用只读 `context --root {workspace-root} --resume-choice resume|review|inspect` 获取最小恢复视图，消费目标、交接、新鲜度与候选操作。校验确认动作可用后才执行。`choice_required=true` 不撤销已有续接授权；缺少动作依据时才询问可用的 `resume_options`。推荐项和状态文本不能授权。
+恢复动作依据当前请求和仍有效的会话授权选择；动作已明确时在首次 `context` 查询加 `--resume-choice resume|review|inspect`，避免重复查询。消费 `route.entry`、`goal`、`required_inputs`、`package_contracts` 与 `diagnostics`；交接内容和新鲜度在 `handoff.frame/stale/conflict`，选择及可用性在 `recovery`。只有 `recovery.selection_available=true` 才采用所选动作。`recovery.choice_required=true` 不撤销已有续接授权；缺少动作依据时才询问可用的 `recovery.resume_options`。推荐项和状态文本不能授权。
 
 过期或阶段冲突的交接先用 `doctor --root {workspace-root} --output summary` 定位并协调；不按旧帧执行。只接受当前 v3 状态与结构化 `handoff`，不从旧/无效状态继承批准、审查或完成声明，不迁移 1.x/2.x。
 
@@ -55,7 +55,7 @@ python3 {skill-root}/scripts/longtask_state.py route --root {workspace-root}
 
 每个工作区唯一的 `.longtask/state.json` 是临时检查点；Git 忽略 `/.longtask/`。所有状态变更用工具返回的完整 `task_id` 与最新 `revision` 双 CAS，不手写状态。命令参数查 `{command} --help`，输出优先 `--output summary`。
 
-恢复只读当前目标、包及 `handoff.required_inputs`；状态字段、DAG、所有权、漂移、证据及完成门的唯一来源是[状态协议](references/状态协议.md)，仅在相关操作或异常时加载对应章节。首次规划用[初始化与交接](references/初始化与交接.md)，需要命令示例时查[操作示例](references/操作示例.md)。阶段名、状态标签或仅编辑文档均不能证明完成。
+恢复只读当前目标、包及最小视图的 `required_inputs`；状态字段、DAG、所有权、漂移、证据及完成门的唯一来源是[状态协议](references/状态协议.md)，仅在相关操作或异常时加载对应章节。首次规划用[初始化与交接](references/初始化与交接.md)，需要命令示例时查[操作示例](references/操作示例.md)。阶段名、状态标签或仅编辑文档均不能证明完成。
 
 ## 并行协作
 

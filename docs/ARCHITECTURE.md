@@ -48,7 +48,7 @@ flowchart TD
 | 模块 | 职责 | 依赖 | 信任边界 | 合同负责人 | 文档 |
 |---|---|---|---|---|---|
 | workflow | 路由、自适应阶段、授权、工作包与完成合同 | state-runtime、document-architecture、expert-system、platform-adapters | 用户意图 ↔ 智能体行动 | 技能维护者 | [SKILL.md](../SKILL.md)、[模块](modules/任务编排.md) |
-| state-runtime | 机器状态、结构化交接、摘要、批准、检查点、路由和并发保护 | Git（可用时） | 工作区 ↔ 临时恢复声明 | 状态运行时维护者 | [协议](../references/状态协议.md)、[工具](../scripts/longtask_state.py)、[模块](modules/状态运行时.md) |
+| state-runtime | 机器状态、只读恢复视图、结构化交接、摘要、批准、检查点、路由和并发保护 | Git（可用时） | 工作区 ↔ 临时恢复声明 | 状态运行时维护者 | [协议](../references/状态协议.md)、[工具](../scripts/longtask_state.py)、[模块](modules/状态运行时.md) |
 | document-architecture | 持久知识层、来源、稳定引用、延续/展开 | 无内部上游 | 预期行为 ↔ 已观察行为 | 文档维护者 | [文档架构](../文档架构.md)、[模块](modules/文档架构.md) |
 | expert-system | 按风险选择独立审查、信任审查、发现与关闭 | state-runtime | 实现者 ↔ 独立验证者 | 审查集成者 | [专家协议](../专家审查协议.md)、[模块](modules/专家审查.md) |
 | platform-adapters | 按能力使用目标、会话、压缩、钩子、子智能体、工作树 | 宿主能力（外部） | 可移植合同 ↔ 宿主能力 | 适配器维护者 | [平台适配器](../references/平台适配器.md) |
@@ -145,7 +145,7 @@ flowchart TD
 ## 恢复入口
 
 - 项目知识从本文件及模块索引加载；不依赖任务档案。
-- 若存在未完成检查点，运行状态工具 `route` 校验后恢复；完成收尾后检查点内容不存在，下一次按当前项目内容和用户目标开始。
+- 若存在未完成检查点，运行状态工具 `context` 获取已校验的最小恢复视图，`route` 保留入口判断接口；完成收尾后检查点内容不存在，下一次按当前项目内容和用户目标开始。
 - 当前插件部署、验证和恢复步骤见[发布与恢复](../references/发布与恢复.md)。
 
 ## 验证边界
