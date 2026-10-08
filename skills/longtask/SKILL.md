@@ -1,6 +1,6 @@
 ---
 name: longtask
-description: 管理需要跨上下文恢复、多个可独立验收工作包或跨会话交接的编码任务。单次会话可完成的小改动、解释或审查不自动启用。
+description: 编排需跨上下文恢复或协调可独立验收工作包的编码任务；普通小改动、解释和审查不自动启用。
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
@@ -11,4 +11,4 @@ metadata:
 
 This is the Codex plugin discovery entry for the canonical root skill.
 
-Before taking task actions, read [`../../SKILL.md`](../../SKILL.md) completely and follow it as the authoritative workflow. Resolve all relative paths in that file from the plugin root, not from this directory.
+Before taking task actions, read [`../../SKILL.md`](../../SKILL.md) and follow its routing and invariants. Resolve all relative paths in that file from the plugin root, not from this directory.

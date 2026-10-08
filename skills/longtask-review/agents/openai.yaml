@@ -1,6 +1,6 @@
 interface:
   display_name: "Longtask · 独立审查"
-  short_description: "按风险独立审查当前实现、文档和版本绑定证据，默认只读"
+  short_description: "独立审查指定实现与文档，绑定当前版本并报告证据及覆盖缺口"
   default_prompt: "使用 $longtask-review 独立审查当前实现与证据，报告可复现的发现。"
 
 policy:

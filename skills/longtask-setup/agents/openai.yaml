@@ -1,6 +1,6 @@
 interface:
   display_name: "Longtask · 新建项目"
-  short_description: "为新的跨会话编码项目保存目标、建立架构并规划可验收工作包"
+  short_description: "为新的跨会话编码项目保存目标，建立最小架构与可验收工作包"
   default_prompt: "使用 $longtask-setup 初始化这个新项目，保存目标并明确架构与验收。"
 
 policy:

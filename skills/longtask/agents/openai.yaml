@@ -1,6 +1,6 @@
 interface:
   display_name: "Longtask"
-  short_description: "以当前项目知识和版本绑定证据，安全恢复并推进跨会话编码任务"
+  short_description: "恢复跨上下文编码任务，协调独立工作包并保留版本绑定验收证据"
   default_prompt: "使用 $longtask 管理这项大型编码任务，保存必要检查点，并完成版本绑定验证和基于风险的审查。"
 
 policy:

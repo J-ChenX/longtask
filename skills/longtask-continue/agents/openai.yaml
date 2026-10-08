@@ -1,6 +1,6 @@
 interface:
   display_name: "Longtask · 恢复任务"
-  short_description: "校验中断后的任务状态与版本绑定证据，继续推进未完成工作"
+  short_description: "从有效检查点恢复任务，或为已有架构建立当前临时恢复状态"
   default_prompt: "使用 $longtask-continue 校验当前检查点，并继续完成未满足的验收。"
 
 policy:
