@@ -50,6 +50,20 @@ class SkillEvalTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(sum(case["should_trigger"] for case in cases), len(cases) // 2)
 
+    def test_malformed_case_id_and_entry_fail_as_contract_errors(self) -> None:
+        data = json.loads((PROJECT / "evals/invocation_cases.json").read_text())
+        for field in ("id", "expected_entry"):
+            with self.subTest(field=field):
+                malformed = copy.deepcopy(data)
+                malformed["cases"][0][field] = []
+                _, errors = EVALS.validate_corpus(malformed)
+                self.assertTrue(errors)
+        _, errors = EVALS.score_classifications(
+            [{"id": "case", "should_trigger": True, "expected_entry": "continue"}],
+            {"results": [{"id": "case", "selected": True, "entry": []}]},
+        )
+        self.assertTrue(errors)
+
     def test_scoring_penalizes_false_invocation_and_wrong_route(self) -> None:
         cases = [
             {"id": "positive", "should_trigger": True, "expected_entry": "setup"},

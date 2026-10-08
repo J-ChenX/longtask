@@ -336,6 +336,90 @@
       "should_trigger": false,
       "expected_entry": null,
       "rationale": "概念解释不触发多会话实施或检查点。"
+    },
+    {
+      "id": "durable_plan_only",
+      "prompt": "请用 longtask 为这个空项目建立跨会话可续接的设计与验收计划。本轮只规划，不写应用代码。",
+      "should_trigger": true,
+      "expected_entry": "setup",
+      "rationale": "明确的持久工作流范围与当前入口，而非关键词或任务步骤数量。"
+    },
+    {
+      "id": "explicit_durable_plan",
+      "prompt": "为新服务简要列出三种设计方案，本轮只讨论，不建立持久工作流或修改文件。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。"
+    },
+    {
+      "id": "authorized_checkpoint_resume",
+      "prompt": "继续这个有效 longtask 的未完成实现。此前已授权完整本地实施，压缩前的输入、包与证据仍有效，请沿用授权完成剩余验收。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "明确的持久工作流范围与当前入口，而非关键词或任务步骤数量。"
+    },
+    {
+      "id": "bounded_authorized_fix",
+      "prompt": "已授权修复这个已知函数的单一边界错误，修改后跑相关测试，今天在本会话完成；无需持久工作流。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。"
+    },
+    {
+      "id": "partial_success_remaining_acceptance",
+      "prompt": "继续有效 longtask 检查点：正常输入已通过，但原合同的空输入与输出校验未完成，请继续完成这些验收。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "明确的持久工作流范围与当前入口，而非关键词或任务步骤数量。"
+    },
+    {
+      "id": "partial_success_local_task",
+      "prompt": "这个本会话的小修复已通过正常输入，请再验证空输入并完成，不用建立跨会话任务。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。"
+    },
+    {
+      "id": "replace_active_goal",
+      "prompt": "停止当前 longtask 的导入工具实现，改为本轮只交付设计比较；保留可恢复检查点并协调当前目标，不继续旧实施。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "明确的持久工作流范围与当前入口，而非关键词或任务步骤数量。"
+    },
+    {
+      "id": "change_advisory_topic",
+      "prompt": "刚才讨论导入工具，现在改为只比较 JSON 和 CSV 的区别，简短回答即可，不执行任务。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。"
+    },
+    {
+      "id": "selective_resume_inputs",
+      "prompt": "恢复当前 longtask 的报表包。架构与有效检查点已存在，只读取当前目标、包和必要输入，完成原定修复与验收。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "明确的持久工作流范围与当前入口，而非关键词或任务步骤数量。"
+    },
+    {
+      "id": "many_files_known_fix",
+      "prompt": "代码库有许多模块，这次只改一个已知错误消息；按需要查看文件并完成，不建立任务状态。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。"
+    },
+    {
+      "id": "explicit_review_recovery",
+      "prompt": "用 longtask 对有效检查点中的实现做只读独立审查，绑定当前证据，审查结论下次会话需要继续，不授权修复。",
+      "should_trigger": true,
+      "expected_entry": "review",
+      "rationale": "明确的持久工作流范围与当前入口，而非关键词或任务步骤数量。"
+    },
+    {
+      "id": "security_keyword_only",
+      "prompt": "只解释这段权限判断的行为，不修改代码、不做持久审查；出现安全相关词也只需局部说明。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。"
     }
   ]
 }

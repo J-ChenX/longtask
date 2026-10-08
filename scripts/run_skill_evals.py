@@ -161,7 +161,8 @@ def validate_corpus(data: dict[str, Any]) -> tuple[list[dict[str, Any]], list[st
             errors.append(f"cases[{index}].id must be non-empty")
         elif case_id in ids:
             errors.append(f"duplicate case id: {case_id}")
-        ids.add(case_id)
+        if isinstance(case_id, str):
+            ids.add(case_id)
         if not isinstance(case["prompt"], str) or not case["prompt"].strip():
             errors.append(f"{case_id}: prompt must be non-empty")
         if not isinstance(case["rationale"], str) or not case["rationale"].strip():
@@ -170,7 +171,7 @@ def validate_corpus(data: dict[str, Any]) -> tuple[list[dict[str, Any]], list[st
             errors.append(f"{case_id}: should_trigger must be boolean")
         elif case["should_trigger"]:
             positive += 1
-            if case["expected_entry"] not in ENTRIES:
+            if not isinstance(case["expected_entry"], str) or case["expected_entry"] not in ENTRIES:
                 errors.append(f"{case_id}: triggered case needs a valid expected_entry")
             else:
                 entries.add(case["expected_entry"])
@@ -213,7 +214,7 @@ def score_classifications(cases: list[dict[str, Any]], results: dict[str, Any]) 
             errors.append(f"{case['id']}: selected must be boolean")
             continue
         entry = result.get("entry")
-        if entry is not None and entry not in ENTRIES:
+        if entry is not None and (not isinstance(entry, str) or entry not in ENTRIES):
             errors.append(f"{case['id']}: entry must be null or a valid mode")
             continue
         if not selected and entry is not None:

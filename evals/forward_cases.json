@@ -140,6 +140,14 @@
     {
       "id": "early_incremental_planning_checkpoint",
       "test": "test_planning_checkpoint_precedes_documents_and_stays_recoverable"
+    },
+    {
+      "id": "plan_inspection_without_writes",
+      "test": "test_fresh_planning_checkpoint_supports_inspection_without_writes"
+    },
+    {
+      "id": "explicit_fresh_resume_selection",
+      "test": "test_explicit_resume_selection_reuses_fresh_checkpoint_without_mutation"
     }
   ]
 }

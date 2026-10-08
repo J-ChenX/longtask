@@ -292,6 +292,30 @@ class ForwardWorkflowTests(unittest.TestCase):
         self.assertEqual(selected["selected_choice"], "review")
         self.assertEqual(selected["entry"], "review")
 
+    def test_fresh_planning_checkpoint_supports_inspection_without_writes(self) -> None:
+        state = self.init("setup", "Deliver only a recoverable design this round")
+        checkpoint = self.root / ".longtask/state.json"
+        events = self.root / ".longtask/events.jsonl"
+        before = (checkpoint.read_bytes(), events.read_bytes())
+        selected = self.cli("route", "--root", str(self.root), "--resume-choice", "inspect")
+        self.assertTrue(selected["selection_available"])
+        self.assertEqual(selected["goal"], state["goal"])
+        self.assertEqual(selected["handoff"]["intent"], "plan")
+        self.assertEqual(before, (checkpoint.read_bytes(), events.read_bytes()))
+        self.assertFalse((self.root / "src").exists())
+
+    def test_explicit_resume_selection_reuses_fresh_checkpoint_without_mutation(self) -> None:
+        state = self.init("continue", "Complete the remaining accepted implementation")
+        checkpoint = self.root / ".longtask/state.json"
+        before = checkpoint.read_bytes()
+        selected = self.cli("route", "--root", str(self.root), "--resume-choice", "resume")
+        self.assertTrue(selected["selection_available"])
+        self.assertFalse(selected["choice_required"])
+        self.assertEqual(selected["entry"], "continue")
+        self.assertEqual(selected["goal"], state["goal"])
+        self.assertEqual(selected["handoff"], state["handoff"])
+        self.assertEqual(checkpoint.read_bytes(), before)
+
     def test_execution_architecture_change_reopens_architecture(self) -> None:
         for mode in ("setup", "continue", "retrofit", "modify"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temporary:

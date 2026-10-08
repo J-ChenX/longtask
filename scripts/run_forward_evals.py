@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import math
@@ -90,14 +91,17 @@ def validate_cases(data: dict[str, Any]) -> list[dict[str, Any]]:
     cases = data.get("cases")
     if data.get("schema_version") != 1 or not isinstance(cases, list) or not cases:
         raise ValueError("forward case manifest is invalid")
-    ids = [item.get("id") for item in cases if isinstance(item, dict)]
-    tests = [item.get("test") for item in cases if isinstance(item, dict)]
-    if len(ids) != len(cases) or len(set(ids)) != len(cases) or None in ids:
-        raise ValueError("forward case IDs must be complete and unique")
-    if len(tests) != len(cases) or len(set(tests)) != len(cases) or None in tests:
-        raise ValueError("forward test names must be complete and unique")
-    suite = (ROOT / "tests" / "test_forward_workflows.py").read_text(encoding="utf-8")
-    missing = [test for test in tests if f"def {test}(" not in suite]
+    for field in ("id", "test"):
+        values = [item.get(field) for item in cases if isinstance(item, dict)]
+        if len(values) != len(cases) or any(not isinstance(value, str) or not value.strip() for value in values):
+            raise ValueError(f"forward {field} names must be non-empty strings")
+        if len(set(values)) != len(cases):
+            raise ValueError(f"forward {field} names must be unique")
+    suite = ast.parse((ROOT / "tests" / "test_forward_workflows.py").read_text(encoding="utf-8"))
+    methods = {method.name for node in suite.body
+               if isinstance(node, ast.ClassDef) and node.name == "ForwardWorkflowTests"
+               for method in node.body if isinstance(method, ast.FunctionDef)}
+    missing = [item["test"] for item in cases if item["test"] not in methods or not item["test"].startswith("test_")]
     if missing:
         raise ValueError("forward cases reference missing tests: " + ", ".join(missing))
     return cases
@@ -162,14 +166,16 @@ def atomic_write(path: Path, text: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--write", action="store_true", help="run the suite and replace the saved result")
+    execution = parser.add_mutually_exclusive_group()
+    execution.add_argument("--write", action="store_true", help="run the suite and replace the saved result")
+    execution.add_argument("--run", action="store_true", help="run the suite without changing saved results")
     parser.add_argument("--timeout-seconds", type=float, default=DEFAULT_TIMEOUT_SECONDS)
     args = parser.parse_args()
     try:
         if not math.isfinite(args.timeout_seconds) or args.timeout_seconds <= 0:
             raise ValueError("timeout-seconds must be a positive finite number")
         cases = validate_cases(load_object(CASES))
-        if not args.write:
+        if not (args.write or args.run):
             errors = check_saved(load_object(RESULTS), cases)
             print(json.dumps({"valid": not errors, "errors": errors}, ensure_ascii=False, indent=2))
             return 0 if not errors else 1
@@ -195,7 +201,7 @@ def main() -> int:
         result = {
             "schema_version": 3,
             "evaluated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "runner": "python3 scripts/run_forward_evals.py --write",
+            "runner": "python3 scripts/run_forward_evals.py " + ("--write" if args.write else "--run"),
             "suite": "deterministic_state_contract",
             "assurance": "deterministic_local_process",
             "cases": len(cases),
@@ -209,7 +215,8 @@ def main() -> int:
             },
             "inputs_sha256": input_hashes(),
         }
-        atomic_write(RESULTS, json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+        if args.write:
+            atomic_write(RESULTS, json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         return 0
     except ValueError as exc:

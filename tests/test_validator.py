@@ -790,6 +790,28 @@ class ValidatorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "expected 26"):
             FORWARD.validate_unittest_transcript("Ran 25 tests\n\nOK\n", 26)
 
+    def test_forward_manifest_requires_real_class_methods(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "tests").mkdir()
+            suite = root / "tests/test_forward_workflows.py"
+            suite.write_text("# def test_comment(\nclass ForwardWorkflowTests:\n    def test_actual(self): pass\n")
+            with mock.patch.object(FORWARD, "ROOT", root):
+                self.assertEqual(len(FORWARD.validate_cases({"schema_version": 1, "cases": [
+                    {"id": "real", "test": "test_actual"}]})), 1)
+                for test in ("test_comment", [], "", "test_actual.inject"):
+                    with self.subTest(test=test), self.assertRaises(ValueError):
+                        FORWARD.validate_cases({"schema_version": 1, "cases": [{"id": "case", "test": test}]})
+
+    def test_forward_run_does_not_replace_saved_results(self) -> None:
+        cases = FORWARD.validate_cases(FORWARD.load_object(FORWARD.CASES))
+        process = subprocess.CompletedProcess([], 0, "", f"Ran {len(cases)} tests\n\nOK\n")
+        with mock.patch.object(FORWARD.subprocess, "run", return_value=process), mock.patch.object(
+            FORWARD, "atomic_write"
+        ) as write, mock.patch.object(sys, "argv", ["run_forward_evals.py", "--run"]), redirect_stdout(io.StringIO()):
+            self.assertEqual(FORWARD.main(), 0)
+        write.assert_not_called()
+
     def test_forward_runner_timeout_is_a_structured_failure(self) -> None:
         error = io.StringIO()
         with mock.patch.object(FORWARD.subprocess, "run", side_effect=subprocess.TimeoutExpired([], 1)), mock.patch.object(
