@@ -1,6 +1,6 @@
 ---
 name: longtask-review
-description: 对 longtask 项目的指定实现或文档做独立、版本绑定审查；默认只读。
+description: 对 longtask 实现或文档做独立、版本绑定审查；默认只读，普通审查不启用。
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
@@ -9,7 +9,7 @@ metadata:
 
 # Longtask 审查
 
-激活时说明正在使用 longtask-review。复用[主技能](../../SKILL.md)，读取[专家审查协议](../../专家审查协议.md)中本次风险、独立性与结论所需章节。
+直接激活时简述 longtask-review；从主入口转入无需再次宣告。复用[主技能](../../SKILL.md)，读取[专家审查协议](../../专家审查协议.md)中本次风险、独立性与结论所需章节。
 
 ## 冻结被审对象
 

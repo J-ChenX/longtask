@@ -1,6 +1,6 @@
 {
   "schema_version": 7,
-  "evaluated_at": "2026-10-08T19:47:08.502987Z",
+  "evaluated_at": "2026-10-09T01:33:28Z",
   "profile": {
     "audience": "personal",
     "supported_host": "Codex CLI",
@@ -10,14 +10,14 @@
   },
   "release": {
     "archive": "dist/longtask-3.0.0.zip",
-    "archive_sha256": "bbd9c3ba4f45a96f6bf362e53b3fc406660f61ea68621068dd13ae4d0f9cd2ec",
-    "source_tree_sha256": "c43c7481ee2f39388583968defac20c275a97b6c8ffdc7d75872f7a0ff64b05a",
-    "file_count": 60,
+    "archive_sha256": "eb3c82265dbe36773c538bb1aba8a024be465e66e11343048f0f237b1e812fe5",
+    "source_tree_sha256": "0c534984746b83bf5fcb3e12b93bd1c6681c9fc8f4b3296e298aa075506f3fc4",
+    "file_count": 77,
     "version": "3.0.0"
   },
   "release_gate": {
     "status": "blocked",
-    "reason": "Current instruction/context optimization candidate: installed-artifact self-check passed after trusted temporary extraction; the full installed-plugin host matrix and recovery drill have not been run. Source-explicit synthetic pilot traces are not native plugin discovery or release evidence. No historical passing sample is rebound to this archive."
+    "reason": "Current Pi alignment candidate: trusted temporary extraction and installed-artifact self-check passed. Full installed-plugin matrix and current-version recovery drill were not run. Separate frozen-source synthetic journeys preserve failures and unknowns; they do not establish native discovery, Astra-specific effects or comparative efficiency, and no historical passing trace is rebound."
   },
   "host": {
     "host": "Codex CLI",
@@ -28,14 +28,14 @@
       "plugin_id": "longtask",
       "installed_version": "3.0.0",
       "manifest_preflight": "unable_to_verify",
-      "validated_archive_sha256": "bbd9c3ba4f45a96f6bf362e53b3fc406660f61ea68621068dd13ae4d0f9cd2ec",
+      "validated_archive_sha256": "eb3c82265dbe36773c538bb1aba8a024be465e66e11343048f0f237b1e812fe5",
       "workflow_trace_archive_sha256": null
     },
     "assertions": [
       {
         "id": "discovery",
         "status": "unable_to_verify",
-        "claim": "Current instruction/context optimization candidate: installed-artifact self-check passed after trusted temporary extraction; the full installed-plugin host matrix and recovery drill have not been run. Source-explicit synthetic pilot traces are not native plugin discovery or release evidence. No historical passing sample is rebound to this archive.",
+        "claim": "Current Pi alignment candidate: trusted temporary extraction and installed-artifact self-check passed. Full installed-plugin matrix and current-version recovery drill were not run. Separate frozen-source synthetic journeys preserve failures and unknowns; they do not establish native discovery, Astra-specific effects or comparative efficiency, and no historical passing trace is rebound.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -70,7 +70,7 @@
       {
         "id": "setup",
         "status": "unable_to_verify",
-        "claim": "Current instruction/context optimization candidate: installed-artifact self-check passed after trusted temporary extraction; the full installed-plugin host matrix and recovery drill have not been run. Source-explicit synthetic pilot traces are not native plugin discovery or release evidence. No historical passing sample is rebound to this archive.",
+        "claim": "Current Pi alignment candidate: trusted temporary extraction and installed-artifact self-check passed. Full installed-plugin matrix and current-version recovery drill were not run. Separate frozen-source synthetic journeys preserve failures and unknowns; they do not establish native discovery, Astra-specific effects or comparative efficiency, and no historical passing trace is rebound.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -105,7 +105,7 @@
       {
         "id": "continue-restart",
         "status": "unable_to_verify",
-        "claim": "Current instruction/context optimization candidate: installed-artifact self-check passed after trusted temporary extraction; the full installed-plugin host matrix and recovery drill have not been run. Source-explicit synthetic pilot traces are not native plugin discovery or release evidence. No historical passing sample is rebound to this archive.",
+        "claim": "Current Pi alignment candidate: trusted temporary extraction and installed-artifact self-check passed. Full installed-plugin matrix and current-version recovery drill were not run. Separate frozen-source synthetic journeys preserve failures and unknowns; they do not establish native discovery, Astra-specific effects or comparative efficiency, and no historical passing trace is rebound.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -140,7 +140,7 @@
       {
         "id": "review-read-only",
         "status": "unable_to_verify",
-        "claim": "Current instruction/context optimization candidate: installed-artifact self-check passed after trusted temporary extraction; the full installed-plugin host matrix and recovery drill have not been run. Source-explicit synthetic pilot traces are not native plugin discovery or release evidence. No historical passing sample is rebound to this archive.",
+        "claim": "Current Pi alignment candidate: trusted temporary extraction and installed-artifact self-check passed. Full installed-plugin matrix and current-version recovery drill were not run. Separate frozen-source synthetic journeys preserve failures and unknowns; they do not establish native discovery, Astra-specific effects or comparative efficiency, and no historical passing trace is rebound.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -175,7 +175,7 @@
       {
         "id": "concurrent-worktree-conflict",
         "status": "unable_to_verify",
-        "claim": "Current instruction/context optimization candidate: installed-artifact self-check passed after trusted temporary extraction; the full installed-plugin host matrix and recovery drill have not been run. Source-explicit synthetic pilot traces are not native plugin discovery or release evidence. No historical passing sample is rebound to this archive.",
+        "claim": "Current Pi alignment candidate: trusted temporary extraction and installed-artifact self-check passed. Full installed-plugin matrix and current-version recovery drill were not run. Separate frozen-source synthetic journeys preserve failures and unknowns; they do not establish native discovery, Astra-specific effects or comparative efficiency, and no historical passing trace is rebound.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -210,7 +210,7 @@
       {
         "id": "user-rejection",
         "status": "unable_to_verify",
-        "claim": "Current instruction/context optimization candidate: installed-artifact self-check passed after trusted temporary extraction; the full installed-plugin host matrix and recovery drill have not been run. Source-explicit synthetic pilot traces are not native plugin discovery or release evidence. No historical passing sample is rebound to this archive.",
+        "claim": "Current Pi alignment candidate: trusted temporary extraction and installed-artifact self-check passed. Full installed-plugin matrix and current-version recovery drill were not run. Separate frozen-source synthetic journeys preserve failures and unknowns; they do not establish native discovery, Astra-specific effects or comparative efficiency, and no historical passing trace is rebound.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -245,7 +245,7 @@
       {
         "id": "missing-host-capability",
         "status": "unable_to_verify",
-        "claim": "Current instruction/context optimization candidate: installed-artifact self-check passed after trusted temporary extraction; the full installed-plugin host matrix and recovery drill have not been run. Source-explicit synthetic pilot traces are not native plugin discovery or release evidence. No historical passing sample is rebound to this archive.",
+        "claim": "Current Pi alignment candidate: trusted temporary extraction and installed-artifact self-check passed. Full installed-plugin matrix and current-version recovery drill were not run. Separate frozen-source synthetic journeys preserve failures and unknowns; they do not establish native discovery, Astra-specific effects or comparative efficiency, and no historical passing trace is rebound.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -280,7 +280,7 @@
       {
         "id": "persistent-prompt-injection",
         "status": "unable_to_verify",
-        "claim": "Current instruction/context optimization candidate: installed-artifact self-check passed after trusted temporary extraction; the full installed-plugin host matrix and recovery drill have not been run. Source-explicit synthetic pilot traces are not native plugin discovery or release evidence. No historical passing sample is rebound to this archive.",
+        "claim": "Current Pi alignment candidate: trusted temporary extraction and installed-artifact self-check passed. Full installed-plugin matrix and current-version recovery drill were not run. Separate frozen-source synthetic journeys preserve failures and unknowns; they do not establish native discovery, Astra-specific effects or comparative efficiency, and no historical passing trace is rebound.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -315,7 +315,7 @@
       {
         "id": "tool-output-pollution",
         "status": "unable_to_verify",
-        "claim": "Current instruction/context optimization candidate: installed-artifact self-check passed after trusted temporary extraction; the full installed-plugin host matrix and recovery drill have not been run. Source-explicit synthetic pilot traces are not native plugin discovery or release evidence. No historical passing sample is rebound to this archive.",
+        "claim": "Current Pi alignment candidate: trusted temporary extraction and installed-artifact self-check passed. Full installed-plugin matrix and current-version recovery drill were not run. Separate frozen-source synthetic journeys preserve failures and unknowns; they do not establish native discovery, Astra-specific effects or comparative efficiency, and no historical passing trace is rebound.",
         "run_id": null,
         "session_id": null,
         "agent_id": null,
@@ -360,11 +360,11 @@
     "run_id": null,
     "trace_id": null,
     "trace_sha256": null,
-    "archive_sha256": "bbd9c3ba4f45a96f6bf362e53b3fc406660f61ea68621068dd13ae4d0f9cd2ec",
+    "archive_sha256": "eb3c82265dbe36773c538bb1aba8a024be465e66e11343048f0f237b1e812fe5",
     "reason": "Current candidate verified against its expected local SHA-256, extracted into a new private temporary directory and passed installed-artifact self-check. This verifies trusted archive extraction only; no live installation or complete recovery drill is claimed."
   },
   "privacy": {
-    "stored_content": "Current archive bindings and explicitly unknown installed-plugin host samples. Private source-explicit synthetic planning pilot traces are retained outside the repository; they do not establish native discovery, installed-plugin matrix coverage, Astra-specific behavior or comparative gains. Historical grader calibration remains scoped to its original archive.",
+    "stored_content": "Current archive bindings and explicitly unknown installed-plugin host samples. Source-explicit synthetic representative observations are recorded separately in memory_results.json; private raw transport is retained outside the repository. They do not establish installed-plugin qualification, Astra-specific behavior or general comparative gains. Historical grader calibration remains scoped to its original archive.",
     "raw_trace_retention_until": "2026-10-15T16:00:00Z",
     "access_scope": "Personal maintainer and explicitly assigned reviewers.",
     "redaction": "Secrets, complete prompts, and sensitive tool arguments are excluded."
@@ -547,7 +547,7 @@
         "success_rate": null,
         "baseline_archive_sha256": null,
         "trace_set_sha256": null,
-        "reason": "No controlled comparison for this candidate; a source-explicit planning pilot cannot establish full-population comparative gains."
+        "reason": "Full installed-plugin matrix comparison remains unverified. Separate representative source-explicit comparisons are recorded in memory_results.json with their original source versions, failures and assurance limits."
       },
       {
         "kind": "previous_candidate",
@@ -567,7 +567,7 @@
         "success_rate": null,
         "baseline_archive_sha256": "437937505b28f98d290c6082a992a43e84ad001d1fd4be4a72949c90463c64d4",
         "trace_set_sha256": null,
-        "reason": "No controlled comparison for this candidate; a source-explicit planning pilot cannot establish full-population comparative gains."
+        "reason": "Full installed-plugin matrix comparison remains unverified. Separate representative source-explicit comparisons are recorded in memory_results.json with their original source versions, failures and assurance limits."
       }
     ],
     "grader_calibration": {
@@ -581,6 +581,6 @@
   },
   "benchmark_gate": {
     "status": "blocked",
-    "reason": "No current full host matrix or controlled performance comparison; no performance gain claimed."
+    "reason": "The current full installed-plugin host matrix is unverified. Separate source-explicit representative controls and ablations in memory_results.json do not establish general performance gains, native discovery or Astra-specific behavior."
   }
 }

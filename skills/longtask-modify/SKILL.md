@@ -1,6 +1,6 @@
 ---
 name: longtask-modify
-description: 修改已建立 longtask 项目的架构、合同或关键技术，冻结受影响范围并重建证据。
+description: 变更已建立 longtask 项目的架构、模块合同或关键技术；普通功能编辑不启用。
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
@@ -9,7 +9,7 @@ metadata:
 
 # Longtask 架构修改
 
-激活时说明正在使用 longtask-modify。复用[主技能](../../SKILL.md)和当前目标，仅补读受影响模块/决策。
+直接激活时简述 longtask-modify；从主入口转入无需再次宣告。复用[主技能](../../SKILL.md)和当前目标，仅补读受影响模块/决策。
 
 ## 变更边界
 

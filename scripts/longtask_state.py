@@ -2034,10 +2034,16 @@ def package_lease_expired(package: dict[str, Any]) -> bool:
 
 def cmd_checkpoint(args: argparse.Namespace) -> dict[str, Any]:
     root = Path(args.root).resolve()
+    raw_handoff = getattr(args, "handoff_data", None)
+    payload = _parse_object(raw_handoff, "handoff") if raw_handoff is not None else None
+    if payload is not None and args.next_action is not None:
+        raise StateError("--handoff-data and --next-action are mutually exclusive")
     digest = artifact_digest(root)
     head = git_head(root)
 
     def mutate(state: dict[str, Any]) -> None:
+        if payload is not None and (artifact_digest(root) != digest or git_head(root) != head):
+            raise StateError("checkpoint handoff observation changed; reread and retry with current CAS")
         state["artifact_digest"] = digest
         state["head_commit"] = head
         stale_packages = invalidate_stale_packages(state, digest, head, root)
@@ -2049,12 +2055,24 @@ def cmd_checkpoint(args: argparse.Namespace) -> dict[str, Any]:
             if state["phase"] == "complete":
                 state["phase"] = "review"
                 state["status"] = "active"
-        if args.next_action is not None:
+        if payload is not None:
+            if stale_packages:
+                raise StateError("cannot create handoff while packages require reconciliation: " + ", ".join(stale_packages))
+            state["handoff"] = build_handoff(
+                payload, state, digest, head, args.actor, state["revision"] + 1,
+            )
+            state["next_action"] = state["handoff"]["objective"]
+            if artifact_digest(root) != digest or git_head(root) != head:
+                raise StateError("checkpoint handoff observation changed; reread and retry with current CAS")
+        elif args.next_action is not None:
             state["next_action"] = args.next_action
         elif stale_packages:
             state["next_action"] = "Rebase or reconcile stale packages: " + ", ".join(stale_packages)
 
-    return save_mutation(root, args.expected_task_id, args.expected_revision, "checkpointed", args.actor, mutate, {"digest": digest})
+    details = {"digest": digest}
+    if payload is not None:
+        details["handoff"] = {"intent": payload.get("intent"), "target": payload.get("target")}
+    return save_mutation(root, args.expected_task_id, args.expected_revision, "checkpointed", args.actor, mutate, details)
 
 
 def cmd_approve(args: argparse.Namespace) -> dict[str, Any]:
@@ -3076,6 +3094,24 @@ def cmd_doctor(args: argparse.Namespace) -> dict[str, Any]:
 
 def cmd_context(args: argparse.Namespace) -> dict[str, Any]:
     """Derived minimum recovery inputs. Free text is data, never authorization or commands."""
+    view = getattr(args, "view", "default")
+    package_id = getattr(args, "package_id", None)
+    max_chars, max_bytes = getattr(args, "max_chars", None), getattr(args, "max_bytes", None)
+    offset, limit = getattr(args, "offset", None), getattr(args, "limit", None)
+    if view != "overview" and (offset is not None or limit is not None):
+        raise StateError("context pagination requires --view overview")
+    if offset is not None and (type(offset) is not int or offset < 0):
+        raise StateError("context offset must be a non-negative integer")
+    if limit is not None and (type(limit) is not int or not 1 <= limit <= 100):
+        raise StateError("context limit must be between 1 and 100")
+    if view == "package" and not package_id:
+        raise StateError("context --view package requires --package-id")
+    if view != "package" and package_id is not None:
+        raise StateError("--package-id requires context --view package")
+    if view != "overview" and (max_chars is not None or max_bytes is not None):
+        raise StateError("context budgets require --view overview")
+    if any(value is not None and (type(value) is not int or value <= 0) for value in (max_chars, max_bytes)):
+        raise StateError("context budgets must be positive integers")
     diagnostics, observation = read_query(args)
     route = diagnostics["route"]
     result = {"read_only": True, "current_task": bool(observation),
@@ -3087,7 +3123,7 @@ def cmd_context(args: argparse.Namespace) -> dict[str, Any]:
     if not observation:
         result["current_task"] = None if route["entry"] == "error" else False
         result["reason"] = "invalid_or_changing_observation" if route["entry"] == "error" else "no_current_task"
-        return result
+        return context_overview(result, None, max_chars, max_bytes, offset or 0, limit or 20) if view == "overview" else result
     state = observation["state"]
     packages = state["work_packages"]
     handoff = state["handoff"]
@@ -3100,12 +3136,14 @@ def cmd_context(args: argparse.Namespace) -> dict[str, Any]:
         candidate_ids.append(target_id)
     if not candidate_ids:
         candidate_ids = [item["id"] for item in packages if item["status"] not in {"complete", "superseded"}]
+    if view == "package" and not any(item["id"] == package_id for item in packages):
+        raise StateError(f"unknown context package: {package_id}")
     contracts = []
     fields = ("id", "objective", "status", "dependencies", "affected_modules", "write_set",
               "acceptance_checks", "base_revision", "risk", "risk_level", "required_review_roles",
               "rollback", "stopping_condition", "owner", "lease_expires", "scope_drift", "stale_base")
     for package in packages:
-        if package["id"] not in candidate_ids:
+        if (view == "package" and package["id"] != package_id) or (view != "package" and package["id"] not in candidate_ids):
             continue
         contract = {key: package[key] for key in fields if key in package}
         missing = next((item["next_operation"]["check_ids"] for item in diagnostics["issues"]
@@ -3129,7 +3167,146 @@ def cmd_context(args: argparse.Namespace) -> dict[str, Any]:
                   blockers=state["blockers"], review=state["review"],
                   recovery={key: route[key] for key in ("choice_required", "selected_choice", "selection_available",
                                                        "recommended_choice", "resume_options")})
+    if view == "overview":
+        return context_overview(result, state, max_chars, max_bytes, offset or 0, limit or 20)
+    if view == "package":
+        result.update(view="package", selected_package_id=package_id,
+                      active_ownership=context_active_ownership(state),
+                      unloaded={"other_package_contracts": len(packages) - 1,
+                                "source": "context --view package --package-id <id>",
+                                "evidence_and_manifests": "state:work_packages"})
     return result
+
+
+def context_active_ownership(state: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{key: package.get(key) for key in ("id", "owner", "lease_expires", "write_set")}
+            for package in state["work_packages"] if package["status"] == "active"]
+
+
+def context_overview(
+    result: dict[str, Any], state: dict[str, Any] | None,
+    max_chars: int | None, max_bytes: int | None, offset: int = 0, limit: int = 20,
+) -> dict[str, Any]:
+    """Budget actual CLI JSON, with a pageable locator derived from the full observation."""
+    if max_chars is None and max_bytes is None:
+        max_chars = 12000
+    packages = state["work_packages"] if state else []
+    if offset > len(packages):
+        raise StateError("context offset exceeds package count")
+    counts: dict[str, int] = {}
+    package_codes: dict[str, list[str]] = {}
+    blocking_locations: dict[str, list[dict[str, Any]]] = {}
+    pending = {"package_evidence_missing", "phase_evidence_missing"}
+    global_issues = []
+    for issue in result["diagnostics"]:
+        code = issue["code"]
+        counts[code] = counts.get(code, 0) + 1
+        package_id = issue["next_operation"].get("package_id")
+        if code not in pending:
+            locator = {key: value for key, value in issue["next_operation"].items()
+                       if key in {"command", "package_id", "blocker_id"}}
+            if locator not in blocking_locations.setdefault(code, []):
+                blocking_locations[code].append(locator)
+        if package_id is None:
+            global_issues.append(issue)
+        else:
+            package_codes.setdefault(package_id, []).append(code)
+    index = []
+    for package in packages[offset:offset + limit]:
+        entry = {"id": package["id"], "status": package["status"],
+                 "objective_hint": package["objective"][:160],
+                 "objective_truncated": len(package["objective"]) > 160,
+                 "diagnostic_codes": package_codes.get(package["id"], []),
+                 "detail_query": {"view": "package", "package_id": package["id"]}}
+        if package["status"] == "active":
+            entry.update(owner=package["owner"], lease_expires=package["lease_expires"])
+        index.append(entry)
+    result = {**result, "view": "overview", "package_contracts": [], "package_index": index,
+              "diagnostics": global_issues,
+              "diagnostic_summary": {"total": sum(counts.values()), "by_code": counts,
+                                     "pending_evidence": sum(value for code, value in counts.items() if code in pending),
+                                     "coordination_or_blocking": sum(value for code, value in counts.items() if code not in pending),
+                                     "details_query": "doctor"},
+              "diagnostic_locations": blocking_locations,
+              "active_ownership": context_active_ownership(state) if state else [],
+              "pagination": {"offset": offset, "limit": limit, "total": len(packages),
+                             "returned": len(index), "next_offset": None, "has_more": False},
+              "consumption": {"incomplete": True, "executable": False, "budget_limited": False,
+                              "next_query": "context --view package --package-id <id>",
+                              "unloaded": {"package_contracts": {"count": len(packages), "source": "state:work_packages"},
+                                           "package_diagnostics": {"count": sum(counts.values()) - len(global_issues), "source": "doctor"},
+                                           "evidence_and_manifests": {"source": ".longtask/state.json"}}},
+              "budget": {"max_chars": max_chars, "max_utf8_bytes": max_bytes,
+                         "chars": 0, "utf8_bytes": 0}}
+    # These are view consumption gates, not changes to runtime availability or permission.
+    if "recovery" in result:
+        recovery = result["recovery"] = {**result["recovery"]}
+        recovery["source_selection_available"] = recovery["selection_available"]
+        recovery["selection_available"] = False
+        recovery["unavailable_reason"] = "overview_requires_detail"
+        recovery["resume_options"] = [{**option, "source_available": option["available"],
+                                       "available": False, "unavailable_reason": "overview_requires_detail"}
+                                      for option in recovery["resume_options"]]
+    if "handoff" in result:
+        result["handoff"] = {**result["handoff"], "usable_target": None}
+    result["next_operation"] = None
+
+    def fits() -> bool:
+        pagination = result.get("pagination")
+        if pagination is not None:
+            returned = len(result.get("package_index", []))
+            next_offset = offset + returned
+            pagination.update(returned=returned, has_more=next_offset < len(packages),
+                              next_offset=next_offset if next_offset < len(packages) else None,
+                              continuation_query={"view": "overview", "offset": next_offset, "limit": limit}
+                              if next_offset < len(packages) else None)
+        # Metadata counts itself and print's final newline; reach its fixed point.
+        budget = result["budget"]
+        while True:
+            serialized = json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+            sizes = len(serialized), len(serialized.encode("utf-8"))
+            if sizes == (budget["chars"], budget["utf8_bytes"]):
+                break
+            budget["chars"], budget["utf8_bytes"] = sizes
+        return (max_chars is None or sizes[0] <= max_chars) and (max_bytes is None or sizes[1] <= max_bytes)
+
+    # Keep useful package locators and whole global issues ahead of large auxiliary text.
+    # All omissions name their source; diagnostic counts always come from the full state.
+    sources = (("goal", "state:goal"),
+               ("required_inputs", "state:handoff.required_inputs"), ("handoff", "state:handoff"),
+               ("review", "state:review"), ("recovery", "context (default): recovery"),
+               ("candidate_package_ids", "context (default): candidate_package_ids"),
+               ("active_package_ids", "context (default): active_package_ids"),
+               ("active_ownership", "context (default): active_package_ids and package_contracts"),
+               ("blockers", "state:blockers"), ("diagnostics", "doctor"),
+               ("diagnostic_locations", "doctor"), ("route", "route"))
+    for field, source in sources:
+        if fits():
+            return result
+        if field not in result:
+            continue
+        value = result.pop(field)
+        unloaded = {"source": source}
+        if isinstance(value, list):
+            unloaded["count"] = len(value)
+        result["consumption"]["unloaded"][field] = unloaded
+        result["consumption"]["budget_limited"] = True
+    # Reduce the page, rather than dropping its entire index. A zero-sized page explicitly
+    # needs a larger budget; it never advances past packages that were not returned.
+    while result["package_index"] and not fits():
+        result["package_index"].pop()
+        result["consumption"]["budget_limited"] = True
+    if fits():
+        return result
+    # A tiny budget may not fit even the omission directory. Return an explicit refusal.
+    result = {"read_only": True, "view": "overview", "current_task": result["current_task"],
+              "consumption": {"incomplete": True, "executable": False, "budget_limited": True,
+                              "next_query": "increase overview budget; context (default) or doctor",
+                              "unloaded": "all contracts, inputs, diagnostics, blockers, ownership, recovery and binding"},
+              "budget": {"max_chars": max_chars, "max_utf8_bytes": max_bytes, "chars": 0, "utf8_bytes": 0}}
+    if fits():
+        return result
+    raise StateError("context overview incomplete: budget cannot fit refusal envelope; fetch context (default) or doctor")
 
 
 def summarize_output(output: dict[str, Any]) -> dict[str, Any]:
@@ -3167,6 +3344,12 @@ def parser() -> argparse.ArgumentParser:
     context = subparsers.add_parser("context", help="read-only minimum recovery view with shared diagnostics")
     context.add_argument("--root", required=True)
     context.add_argument("--resume-choice", choices=("resume", "review", "inspect"))
+    context.add_argument("--view", choices=("default", "overview", "package"), default="default")
+    context.add_argument("--package-id", help="explicit package to load with --view package")
+    context.add_argument("--offset", type=int, help="overview package index offset (default: 0)")
+    context.add_argument("--limit", type=int, help="overview package index page size, 1..100 (default: 20)")
+    context.add_argument("--max-chars", type=int, help="overview CLI JSON character budget (default: 12000 if neither budget supplied)")
+    context.add_argument("--max-bytes", type=int, help="overview CLI JSON UTF-8 byte budget; both budgets apply when supplied")
     context.set_defaults(function=cmd_context)
 
     initialize = subparsers.add_parser("init")
@@ -3189,7 +3372,9 @@ def parser() -> argparse.ArgumentParser:
         command.add_argument("--expected-revision", type=int, required=True)
         command.add_argument("--actor", default="agent")
         if name == "checkpoint":
-            command.add_argument("--next-action")
+            checkpoint_inputs = command.add_mutually_exclusive_group()
+            checkpoint_inputs.add_argument("--next-action")
+            checkpoint_inputs.add_argument("--handoff-data", help="new handoff input JSON (same contract as handoff --data), saved in this CAS; no runtime binding fields")
         elif name == "approve":
             command.add_argument("--scope", required=True)
         elif name == "transition":

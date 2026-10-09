@@ -27,7 +27,9 @@
     "evals/host_results.json",
     "evals/invocation_results.json",
     "evals/forward_results.json",
-    "docs/tasks"
+    "evals/memory_results.json",
+    "docs/tasks",
+    "evals/progress_results.json"
   ],
   "exclude_names": [
     ".DS_Store",

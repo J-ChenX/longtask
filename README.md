@@ -75,8 +75,25 @@ flowchart LR
 恢复时，`context` 从当前检查点生成只读视图，集中提供总目标、候选工作包、必要输入、验收缺口和诊断，不另存一份状态：
 
 ```bash
-python3 scripts/longtask_state.py context --root /absolute/project --resume-choice inspect
+python3 scripts/longtask_state.py context --root /absolute/project --view overview --resume-choice inspect
 ```
+
+工作包多或尚未定位时，可先用 `context --view overview` 获取有预算的发现视图，再按返回入口读取指定包详情。概览不能直接作为执行依据，省略内容和完整诊断的消费规则见[状态协议](references/状态协议.md#最小恢复视图v300)。
+
+项目知识可先发现、再读取选中章节：
+
+```bash
+python3 scripts/knowledge_context.py index --root /absolute/project --query '接口'
+python3 scripts/knowledge_context.py read --root /absolute/project --ref 'docs/ARCHITECTURE.md#项目目标'
+python3 scripts/required_inputs.py resolve --root /absolute/project --from-handoff
+python3 scripts/acceptance_coverage.py query --root /absolute/project --ref 'docs/ARCHITECTURE.md#批准验收'
+python3 scripts/discovery_checkpoint.py list --root /absolute/project
+python3 scripts/knowledge_context.py diagnose --root /absolute/project
+```
+
+`read` 命令中的引用应替换为索引返回的 `ref`；可通过 `--expect-sha256` 核对选中时的文件摘要。结果带完整性和省略标记，具体预算、稳定引用及信任边界见[知识检索接口](docs/modules/文档架构.md#知识检索接口)。
+
+必要输入、验收覆盖和外部条件的派生规则见[文档合同](文档架构.md#必要输入解析合同)；发现保存边界见[任务推进](references/任务推进.md#发现与保存事件)，诊断只提供选定范围的结构线索。
 
 状态可用性与用户授权分别判断。指令先通过简短描述发现，再按模式读取必要资料；分段交付、会话拆分等策略仅在对应决策出现时展开。
 

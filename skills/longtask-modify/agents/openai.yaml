@@ -1,7 +1,7 @@
 interface:
   display_name: "Longtask · 架构变更"
   short_description: "变更已建立项目的架构与合同，冻结受影响范围并重建验收证据"
-  default_prompt: "使用 $longtask-modify 处理这项架构变更，明确影响范围与验收。"
+  default_prompt: "使用 $longtask-modify 完成已授权的架构变更与受影响验收。"
 
 policy:
   allow_implicit_invocation: true

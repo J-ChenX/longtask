@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "suite": "source_explicit_memory_consumption",
+  "repetitions": 2,
+  "cases": [
+    {"id": "frontier-knowledge", "covers": ["large_work_frontier", "knowledge_location"], "phases": ["recover"], "arms": ["no_skill", "previous", "candidate", "without_overview", "without_knowledge"], "goal": "请在这个合成仓库恢复CSV导入任务的当前合同，找到对应的工作包与模块知识，核对完整合同及风险后，仅写report.json报告：package_id、module_contract（delimiter、empty_behavior、verification）、source_refs（仓库相对路径或章节）、risks。这是只读恢复调查，不实施应用、批准或改状态；report.json是唯一允许写的文件。不要访问个人项目、认证文件、网络或外部服务。"},
+    {"id": "investigation-resume", "covers": ["failed_investigation_recovery", "omitted_acceptance", "changed_runtime_conditions", "real_compaction"], "phases": ["investigate", "compact", "recover"], "arms": ["no_skill", "previous", "candidate", "without_save"], "investigation_goal": "这个合成CSV导入项目中legacy方案可能是阻塞。授权实测仓库提供的legacy探针一次（只读取本地合成外部输入，输出结果，无外部副作用），核对实际运行条件，保存有助于后续恢复的已确认结论、适用条件、仍待验证假设及续接方向。可选择现有项目知识或技能维护的唯一临时检查点；长期有效结论更新所属模块，临时假设及单次失败保持临时/未验证，保留原合同。若使用技能运行时，保存显式版本绑定交接供续接核对。本轮只调查，不实施应用、不生成report.json、不宣称完成。写集仅docs/modules/导入.md和通过运行时维护的.longtask。不要访问个人项目、认证文件、网络或外部服务。", "goal": "继续前面的CSV导入调查。请恢复已确认结论、待验证假设及下一步；核对原批准验收和已登记包的覆盖情况，并验证当前实际运行条件。仅写report.json报告：known_failure、hypothesis_status、missing_acceptance、runtime_mode、next_action、source_refs。不要实施应用、批准、重新做条件未变的失败实验或改状态。report.json是唯一允许写的文件。不要访问个人项目、认证文件、网络或外部服务。"}
+  ],
+  "limitations": ["Representatives only; no aggregate generalization", "Source-explicit reading is not installed-plugin activation", "Configured model is not attested inference identity", "Compaction count is observed, not a compression-benefit estimate"]
+}

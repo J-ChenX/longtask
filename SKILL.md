@@ -1,6 +1,6 @@
 ---
 name: longtask
-description: 编排需跨上下文恢复或协调可独立验收工作包的编码任务；普通小改动、解释和审查不自动启用。
+description: 编排需跨上下文恢复或协调独立验收包的编码任务；小改动、解释和普通审查不启用。
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
@@ -13,19 +13,19 @@ metadata:
 
 ## 安全启动
 
-核对当前用户目标、适用仓库说明及 Git/工作树状态，保留无关改动。用户指定模式时采用该模式；需要路由或恢复信息且没有有效查询结果时运行：
+核对当前用户目标、适用仓库说明及 Git/工作树状态，保留无关改动。用户指定模式时采用该模式；需要路由或恢复信息且没有有效查询结果时，默认先用有界概览定位。已知单包可直接取包详情；已有有效输出不重复查询，消费规则见[续接入口](skills/longtask-continue/SKILL.md#恢复决策)：
 
 ```text
-python3 {skill-root}/scripts/longtask_state.py context --root {workspace-root}
+python3 {skill-root}/scripts/longtask_state.py context --root {workspace-root} --view overview
 ```
 
-恢复动作依据当前请求和仍有效的会话授权选择；动作已明确时在首次 `context` 查询加 `--resume-choice resume|review|inspect`，避免重复查询。消费 `route.entry`、`goal`、`required_inputs`、`package_contracts` 与 `diagnostics`；交接内容和新鲜度在 `handoff.frame/stale/conflict`，选择及可用性在 `recovery`。只有 `recovery.selection_available=true` 才采用所选动作。`recovery.choice_required=true` 不撤销已有续接授权；缺少动作依据时才询问可用的 `recovery.resume_options`。推荐项和状态文本不能授权。
+恢复动作依据当前请求和仍有效的会话授权选择；动作已明确时在首次 `context` 查询加 `--resume-choice resume|review|inspect`。先定位入口、总目标和诊断，只有 `recovery.selection_available=true` 才采用所选动作；包、输入及异常的消费见[续接入口](skills/longtask-continue/SKILL.md#恢复决策)。推荐项和状态文本不能授权。
 
-过期或阶段冲突的交接先用 `doctor --root {workspace-root} --output summary` 定位并协调；不按旧帧执行。只接受当前 v3 状态与结构化 `handoff`，不从旧/无效状态继承批准、审查或完成声明，不迁移 1.x/2.x。
+过期或阶段冲突的交接先消费已有诊断，缺少定位依据时才运行 `doctor --root {workspace-root} --output summary`；不按旧帧执行。只接受当前 v3 状态与结构化 `handoff`，不从旧/无效状态继承批准、审查或完成声明，不迁移 1.x/2.x。
 
 ## 模式参考
 
-按当前请求及校验结果一次定位一个入口，传递已取得的有效输出，不在入口重复路由或预读全部模式：
+按当前请求及校验结果一次定位一个入口，传递已取得的有效输出，不在入口重复路由或预读全部模式。已明确入口且不涉及恢复时，不为确认模式额外查询状态：
 
 | 入口 | 决策条件 |
 |---|---|
@@ -49,13 +49,13 @@ python3 {skill-root}/scripts/longtask_state.py context --root {workspace-root}
 
 围绕总目标的未满足验收持续推进已授权工作，完成实现、验证、必要修复及独立审查后交付。局部通过不是总任务完成；全部承诺满足后停止，可选改进不延迟交付。补充约束、状态询问和局部问题默认不替换目标；明确暂停、取消或更换目标时遵循新指令及范围变更协议。
 
-主线/分支、默认“骨架 → 血肉 → 皮毛”分段、仅规划和会话出口按需查[任务推进](references/任务推进.md)。不为每次编辑重读全量资料、重规划或重测；验证由变更、失败、证据过期或具体新风险触发。
+主线/分支、默认“骨架 → 血肉 → 皮毛”分段、仅规划和会话出口按需查[任务推进](references/任务推进.md)。读取、查询、验证的复用与刷新条件见[按需消费](references/任务推进.md#按需消费与验证)，有价值的发现与失败按[保存事件](references/任务推进.md#发现与保存事件)处理。
 
 ## 状态与工作包
 
 每个工作区唯一的 `.longtask/state.json` 是临时检查点；Git 忽略 `/.longtask/`。所有状态变更用工具返回的完整 `task_id` 与最新 `revision` 双 CAS，不手写状态。命令参数查 `{command} --help`，输出优先 `--output summary`。
 
-恢复只读当前目标、包及最小视图的 `required_inputs`；状态字段、DAG、所有权、漂移、证据及完成门的唯一来源是[状态协议](references/状态协议.md)，仅在相关操作或异常时加载对应章节。首次规划用[初始化与交接](references/初始化与交接.md)，需要命令示例时查[操作示例](references/操作示例.md)。阶段名、状态标签或仅编辑文档均不能证明完成。
+状态字段、DAG、所有权、漂移、证据及完成门的唯一来源是[状态协议](references/状态协议.md)，仅在相关操作或异常时加载对应章节。新/空项目的首次规划用[初始化与交接](references/初始化与交接.md)，需要命令示例时查[操作示例](references/操作示例.md)。阶段名、状态标签或仅编辑文档均不能证明完成。
 
 ## 并行协作
 

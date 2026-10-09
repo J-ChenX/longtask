@@ -1,19 +1,19 @@
 {
   "schema_version": 3,
   "evaluation": {
-    "method": "Independent prompt-only classification of frozen final skill metadata and entry contracts; expected labels withheld",
-    "evaluator": "/root/invocation_blind independent subagent",
-    "evaluated_at": "2026-10-08T19:46:48.353523+00:00",
+    "method": "Independent prompt-only classification of frozen V2 skill metadata and entry contracts; expected labels withheld; reviewer previously familiar with routing rules",
+    "evaluator": "/root/ag_architecture_quality independent reviewer",
+    "evaluated_at": "2026-10-08T22:12:54.647200+00:00",
     "assurance": "unattested_classification",
     "model": "unrecorded",
-    "harness": "Isolated subagent restricted to frozen skill inputs and id/prompt corpus; no native discovery execution",
+    "harness": "Reviewer restricted to frozen skill inputs and id/prompt corpus for classification; no native discovery execution; not a first exposure to skill design",
     "repetitions": 1,
     "trace_available": false,
     "trace_id": null
   },
   "inputs": {
     "corpus_sha256": "39d488d9a2938490e6a50473742f6558f1a5bb8ba336eb01298080f3497ce1d9",
-    "discovery_surface_sha256": "514237937e871ce44c407d8958eabc8836bbc5f0d445f2507784b0b02e74d1e3",
+    "discovery_surface_sha256": "28149d1a339bcbe898f24025671c38febe7cedd54b71ba8714fc78991f92df5e",
     "runner_sha256": "d4e594c3ac14aa427b9555f17dec35ab0f3094d6784fff2a015a7e029883fe73"
   },
   "results": [

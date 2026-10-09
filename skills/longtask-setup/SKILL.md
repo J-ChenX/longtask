@@ -1,6 +1,6 @@
 ---
 name: longtask-setup
-description: 为需 longtask 的全新或空项目保存目标、建立架构与可验收工作包；已有实现用 retrofit。
+description: 为需 longtask 的全新或空项目建立架构与验收包；已有实现用 retrofit。
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
@@ -9,7 +9,7 @@ metadata:
 
 # Longtask 初始化
 
-激活时说明正在使用 longtask-setup。复用[主技能](../../SKILL.md)，确认是全新/空项目；已有实现转 retrofit。
+直接激活时简述 longtask-setup；从主入口转入无需再次宣告。复用[主技能](../../SKILL.md)，确认是全新/空项目；已有实现转 retrofit。
 
 ## 预期结果
 

@@ -15,6 +15,132 @@ STATE_SCRIPT = PROJECT / "scripts" / "longtask_state.py"
 
 
 class ForwardWorkflowTests(unittest.TestCase):
+    def knowledge_cli(self, *arguments: str, ok: bool = True) -> dict:
+        result = subprocess.run(
+            [sys.executable, str(PROJECT / "scripts/knowledge_context.py"),
+             *arguments, "--root", str(self.root)],
+            capture_output=True, text=True, timeout=30, check=False,
+        )
+        self.assertEqual(result.returncode == 0, ok, result.stderr)
+        return json.loads(result.stdout or result.stderr)
+
+    def test_selected_knowledge_survives_save_and_rejects_later_drift(self) -> None:
+        document = self.root / "docs/modules/读取解析.md"
+        document.parent.mkdir(parents=True)
+        document.write_text("# 读取解析\n\n## 验收\n\napproved: 空输入返回空结果。\n", encoding="utf-8")
+        state = self.init("setup", "Plan the accepted reader contract")
+        index = self.knowledge_cli("index", "--query", "验收")
+        selected = next(item for item in index["entries"] if item["title"] == "验收")
+        handoff = {
+            "intent": "plan", "objective": "Continue planning the reader",
+            "reason": "The module contract is available; implementation is not authorized",
+            "target": {"kind": "task", "ref": state["task_id"]},
+            "required_inputs": [selected["ref"]], "acceptance_checks": ["reader contract is complete"],
+            "next_if_pass": {"intent": "decide", "objective": "Review the implementation scope"},
+            "next_if_fail": {"intent": "plan", "objective": "Resolve the contract gap"},
+        }
+        state = self.advance(state, "checkpoint", "--handoff-data", json.dumps(handoff))
+        before = {str(p): p.read_bytes() for p in self.root.rglob("*") if p.is_file()}
+        overview = self.cli("context", "--root", str(self.root), "--view", "overview",
+                            "--resume-choice", "inspect")
+        self.assertFalse(overview["consumption"]["executable"])
+        detail = self.cli("context", "--root", str(self.root), "--resume-choice", "inspect")
+        self.assertFalse(detail["handoff"]["stale"])
+        self.assertEqual(detail["required_inputs"], [selected["ref"]])
+        knowledge = self.knowledge_cli("read", "--ref", detail["required_inputs"][0],
+                                       "--expect-sha256", selected["file_sha256"])
+        self.assertTrue(knowledge["complete"])
+        self.assertIn("空输入返回空结果", knowledge["text"])
+        self.assertEqual(before, {str(p): p.read_bytes() for p in self.root.rglob("*") if p.is_file()})
+        document.write_text("# 读取解析\n\n## 验收\n\napproved: 空输入需要显式拒绝。\n", encoding="utf-8")
+        stale = self.cli("context", "--root", str(self.root), "--resume-choice", "resume")
+        self.assertTrue(stale["handoff"]["stale"])
+        self.assertFalse(stale["recovery"]["selection_available"])
+        self.knowledge_cli("read", "--ref", selected["ref"],
+                           "--expect-sha256", selected["file_sha256"], ok=False)
+
+    def helper_cli(self, script: str, *arguments: str) -> dict:
+        result = subprocess.run([sys.executable, str(PROJECT / "scripts" / script),
+                                 *arguments, "--root", str(self.root)],
+                                capture_output=True, text=True, timeout=30, check=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return json.loads(result.stdout)
+
+    def test_discovery_saved_frame_resolves_actual_inputs_without_authorizing_tests(self) -> None:
+        document = self.root / "docs/ARCHITECTURE.md"
+        document.parent.mkdir(parents=True)
+        document.write_text("# Project\n## Contract\nLocal parsing returns an empty list.\n")
+        state = self.init("setup")
+        data = {"event_id": "offline-investigation", "outcome": "excluded_option",
+                "problem": "Remote parsing unavailable", "attempts": ["Tried once"],
+                "observations": ["Transport offline"],
+                "conclusion": {"source": "observed", "statement": "Remote call failed offline"},
+                "affected_contracts": ["AC-parse"], "conditions": "offline",
+                "retry_when": "Transport changes", "next_action": "Inspect local contract"}
+        handoff = {"intent": "plan", "objective": "Inspect local parsing",
+                   "reason": "Remote route failed", "target": {"kind": "task", "ref": state["task_id"]},
+                   "required_inputs": ["state:goal", "docs/ARCHITECTURE.md#contract"],
+                   "acceptance_checks": ["Contract understood"],
+                   "next_if_pass": {"intent": "decide", "objective": "Choose implementation"},
+                   "next_if_fail": {"intent": "plan", "objective": "Resolve missing contract"}}
+        saved = self.helper_cli("discovery_checkpoint.py", "record", "--expected-task-id", state["task_id"],
+                                "--expected-revision", str(state["revision"]), "--actor", "investigator",
+                                "--environment", '{"transport":"offline"}', "--data", json.dumps(data),
+                                "--handoff-data", json.dumps(handoff))
+        self.assertTrue(saved["handoff_saved"])
+        before = {str(p): p.read_bytes() for p in self.root.rglob("*") if p.is_file()}
+        inputs = self.helper_cli("required_inputs.py", "resolve", "--from-handoff")
+        discovery = self.helper_cli("discovery_checkpoint.py", "read", "--event-id", data["event_id"],
+                                    "--environment", '{"transport":"online"}')
+        self.assertTrue(inputs["complete"])
+        self.assertIn("empty list", inputs["inputs"][1]["text"])
+        self.assertIn("environment_changed", discovery["records"][0]["recheck_reasons"])
+        self.assertFalse(discovery["trust"]["grants_acceptance"])
+        self.assertEqual(before, {str(p): p.read_bytes() for p in self.root.rglob("*") if p.is_file()})
+
+    def test_goal_coverage_keeps_missing_outcome_and_changed_external_environment_visible(self) -> None:
+        document = self.root / "docs/ARCHITECTURE.md"
+        document.parent.mkdir(parents=True)
+        document.write_text("""# Project
+## Approval
+The user accepted AC-one and AC-two.
+## Acceptance
+| ID | Outcome | Approval | Scope | Exclusion | Contract |
+|---|---|---|---|---|---|
+| AC-one | Parser works | docs/ARCHITECTURE.md#approval | included | - | docs/ARCHITECTURE.md#runtime |
+| AC-two | Errors remain visible | docs/ARCHITECTURE.md#approval | included | - | - |
+## Runtime
+| ID | Purpose | Entry | Conditions | Evidence |
+|---|---|---|---|---|
+| local | Parse locally | python verify.py | transport | evidence:global:test:runtime |
+""")
+        state = self.init("setup")
+        state = self.advance(state, "evidence", "--kind", "test", "--check-id", "[acceptance:AC-one]",
+                             "--summary", "Parser checked", "--result", "pass")
+        self.advance(state, "evidence", "--kind", "test", "--check-id", "runtime",
+                     "--summary", "Runtime checked online", "--result", "pass",
+                     "--details", '{"external_observations":{"transport":"online"}}')
+        online = self.helper_cli("acceptance_coverage.py", "query", "--ref", "docs/ARCHITECTURE.md#acceptance",
+                                 "--condition", "transport=online")
+        offline = self.helper_cli("acceptance_coverage.py", "query", "--ref", "docs/ARCHITECTURE.md#acceptance",
+                                  "--condition", "transport=offline")
+        self.assertEqual([a["status"] for a in online["acceptance"]], ["verified", "uncovered"])
+        self.assertEqual([a["status"] for a in offline["acceptance"]], ["unverified", "uncovered"])
+        self.assertFalse(offline["all_included_verified"])
+        self.assertFalse(offline["acceptance"][0]["runtime_contract"]["entries"][0]["executed"])
+
+    def test_project_knowledge_remains_discoverable_after_finish(self) -> None:
+        state = self.reviewed_project()
+        self.advance(state, "finish")
+        self.assertFalse((self.root / ".longtask/state.json").exists())
+        index = self.knowledge_cli("index", "--query", "verification")
+        selected = next(item for item in index["entries"] if item["path"] == "docs/ARCHITECTURE.md")
+        knowledge = self.knowledge_cli("read", "--ref", selected["ref"],
+                                       "--expect-sha256", selected["file_sha256"])
+        self.assertTrue(knowledge["complete"])
+        self.assertIn("run verify.py", knowledge["text"])
+        self.assertFalse((self.root / ".longtask/state.json").exists())
+
     def test_planning_checkpoint_precedes_documents_and_stays_recoverable(self) -> None:
         from scripts.demo_workflow import demonstrate
         result = demonstrate('planning')

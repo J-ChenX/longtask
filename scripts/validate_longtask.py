@@ -43,6 +43,13 @@ REQUIRED_FILES = (
     "scripts/longtask_state.py",
     "scripts/run_skill_evals.py",
     "scripts/run_forward_evals.py",
+    "scripts/knowledge_context.py",
+    "scripts/required_inputs.py",
+    "scripts/acceptance_coverage.py",
+    "scripts/discovery_checkpoint.py",
+    "scripts/run_memory_evals.py",
+    "evals/memory_cases.json",
+    "evals/memory_results.json",
     "evals/invocation_cases.json",
     "evals/invocation_results.json",
     "evals/forward_cases.json",
@@ -1191,6 +1198,28 @@ def check_forward_results(errors: list[str]) -> None:
             fail(errors, "forward result verifier failed: " + (process.stderr or process.stdout).strip())
 
 
+def check_memory_results(errors: list[str]) -> None:
+    try:
+        process = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/run_memory_evals.py")],
+            cwd=ROOT, capture_output=True, text=True, check=False,
+            timeout=SUBPROCESS_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        fail(errors, f"memory result verification exceeded {SUBPROCESS_TIMEOUT_SECONDS:g} seconds")
+        return
+    if process.returncode != 0:
+        try:
+            payload = json.loads(process.stdout or process.stderr)
+            messages = payload.get("errors", [])
+            if not messages:
+                fail(errors, "memory result verifier failed without structured errors")
+            for message in messages:
+                fail(errors, str(message))
+        except (json.JSONDecodeError, AttributeError):
+            fail(errors, "memory result verifier failed: " + (process.stderr or process.stdout).strip())
+
+
 def check_invocation_results(errors: list[str]) -> None:
     try:
         process = subprocess.run(
@@ -1575,7 +1604,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     errors: list[str] = []
 
-    external_results = {"evals/host_results.json", "evals/invocation_results.json", "evals/forward_results.json"}
+    external_results = {"evals/host_results.json", "evals/invocation_results.json", "evals/forward_results.json", "evals/memory_results.json"}
     required_files = tuple(path for path in REQUIRED_FILES if not args.installed or path not in external_results) + (() if args.installed else ("evals/host_results.json",))
     for relative in required_files:
         if not (ROOT / relative).is_file():
@@ -1652,6 +1681,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.installed:
         check_invocation_results(errors)
         check_forward_results(errors)
+        check_memory_results(errors)
     check_markdown_links(ROOT, errors)
 
     if errors:

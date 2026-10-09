@@ -1,6 +1,6 @@
 ---
 name: longtask-retrofit
-description: 为既无可用 longtask 检查点又无持久架构的已有代码库建立当前知识与恢复状态。
+description: 接入既无可用 longtask 检查点又无持久架构的已有代码库。
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
@@ -9,7 +9,7 @@ metadata:
 
 # Longtask 既有项目接入
 
-激活时说明正在使用 longtask-retrofit。复用[主技能](../../SKILL.md)，从当前目标限定接入范围；读取相关入口、文档、代码与测试，只有合同或来源缺口才深入历史，不先做全库盘点。
+直接激活时简述 longtask-retrofit；从主入口转入无需再次宣告。复用[主技能](../../SKILL.md)，从当前目标限定接入范围；读取相关入口、文档、代码与测试，只有合同或来源缺口才深入历史，不先做全库盘点。
 
 ## 接入结果
 

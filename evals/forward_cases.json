@@ -2,6 +2,14 @@
   "schema_version": 1,
   "cases": [
     {
+      "id": "selected_knowledge_checkpoint_and_drift",
+      "test": "test_selected_knowledge_survives_save_and_rejects_later_drift"
+    },
+    {
+      "id": "knowledge_discovery_after_finish",
+      "test": "test_project_knowledge_remains_discoverable_after_finish"
+    },
+    {
       "id": "project_content_convergence",
       "test": "test_finished_work_keeps_project_content_and_discards_execution_records"
     },
@@ -148,6 +156,14 @@
     {
       "id": "explicit_fresh_resume_selection",
       "test": "test_explicit_resume_selection_reuses_fresh_checkpoint_without_mutation"
+    },
+    {
+      "id": "discovery_frame_actual_input_consumption",
+      "test": "test_discovery_saved_frame_resolves_actual_inputs_without_authorizing_tests"
+    },
+    {
+      "id": "goal_coverage_external_environment",
+      "test": "test_goal_coverage_keeps_missing_outcome_and_changed_external_environment_visible"
     }
   ]
 }

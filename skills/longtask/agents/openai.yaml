@@ -1,7 +1,7 @@
 interface:
   display_name: "Longtask"
   short_description: "恢复跨上下文编码任务，协调独立工作包并保留版本绑定验收证据"
-  default_prompt: "使用 $longtask 管理这项大型编码任务，保存必要检查点，并完成版本绑定验证和基于风险的审查。"
+  default_prompt: "使用 $longtask 编排这项需要恢复或独立验收包的编码任务，持续完成约定验收。"
 
 policy:
   allow_implicit_invocation: true

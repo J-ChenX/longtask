@@ -448,7 +448,7 @@ class ValidatorTests(unittest.TestCase):
                 stack.enter_context(mock.patch.object(VALIDATOR, "SKILL_NAMES", ()))
                 for name in ("check_skill", "check_skill_interface", "check_disclosure_graph", "check_metadata",
                              "check_release_archive", "check_host_results",
-                             "check_invocation_results", "check_forward_results"):
+                             "check_invocation_results", "check_forward_results", "check_memory_results"):
                     stack.enter_context(mock.patch.object(VALIDATOR, name))
                 for target, expected in (("overview.md", 0), ("doc-architecture.md", 1)):
                     with self.subTest(target=target):
@@ -482,7 +482,7 @@ class ValidatorTests(unittest.TestCase):
                     stack.enter_context(mock.patch.object(VALIDATOR, "SKILL_NAMES", ()))
                     stack.enter_context(mock.patch.object(VALIDATOR, "check_release_archive", return_value=binding))
                     for name in ("check_skill", "check_skill_interface", "check_disclosure_graph", "check_portable_markdown_paths",
-                                 "check_metadata", "check_invocation_results", "check_forward_results",
+                                 "check_metadata", "check_invocation_results", "check_forward_results", "check_memory_results",
                                  "check_markdown_links"):
                         stack.enter_context(mock.patch.object(VALIDATOR, name))
                     stack.enter_context(redirect_stderr(error))
@@ -852,7 +852,8 @@ class ValidatorTests(unittest.TestCase):
             VALIDATOR.check_release_archive(errors)
             VALIDATOR.check_forward_results(errors)
             VALIDATOR.check_invocation_results(errors)
-        self.assertEqual(len([message for message in errors if "exceeded" in message]), 3)
+            VALIDATOR.check_memory_results(errors)
+        self.assertEqual(len([message for message in errors if "exceeded" in message]), 4)
 
     def test_inline_link_parser_handles_parentheses_in_angle_destination(self) -> None:
         self.assertEqual(

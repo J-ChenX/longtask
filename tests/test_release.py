@@ -17,6 +17,7 @@ EVALUATION_RESULTS = (
     "evals/host_results.json",
     "evals/invocation_results.json",
     "evals/forward_results.json",
+    "evals/memory_results.json",
 )
 SPEC = importlib.util.spec_from_file_location("build_release", ROOT / "scripts" / "build_release.py")
 assert SPEC and SPEC.loader

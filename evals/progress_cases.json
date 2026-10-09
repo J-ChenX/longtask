@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "suite": "source_explicit_progress_journeys",
+  "cases": [
+    {"id": "new-project", "journey": "全新项目完整实施", "fixture": "new", "phases": [{"id": "implement", "instruction": "授权在这个全新合成项目完成本地slug函数的完整实现、相关文档和验收。唯一产品合同在合同.md。持续完成本轮范围内工作，遇到真实授权或独立审查缺口明确保存下一动作。"}], "acceptance": "application"},
+    {"id": "planning-only", "journey": "仅规划后授权续接", "fixture": "new", "phases": [{"id": "plan", "instruction": "本轮仅规划合同.md中的slug实现。可建立架构和通过公开CLI保存规划检查点；把可执行的范围、验收、未完成工作及下次行动写入plan.md。本轮禁止实现slug.py，不批准实施，不声称完整目标完成。"}, {"id": "continue", "instruction": "本轮用户新增实施授权：消费上一轮plan.md及现有项目合同和检查点，完成原合同.md的本地slug实现、相关验证及必要文档。原先仅规划的限制只适用于上一轮；本轮持续推进完整验收，真实授权或独立审查缺口明确保存下一动作。"}], "acceptance": "application"},
+    {"id": "fresh-checkpoint", "journey": "新鲜检查点续接", "fixture": "fresh", "phases": [{"id": "resume", "instruction": "续接这个合成项目的新鲜检查点。当前用户授权完成合同.md中的slug实现、验收及必要文档，先核对当前恢复条件，然后持续处理剩余验收。"}], "acceptance": "application"},
+    {"id": "stale-handoff", "journey": "陈旧交接协调", "fixture": "stale", "phases": [{"id": "reconcile", "instruction": "续接合成slug项目。交接保存后slug.py已有外部合成变动，旧交接不能作为当前版本指令。核对漂移并协调当前状态，保留当前合同，然后完成范围内修复与验收。"}], "acceptance": "application"},
+    {"id": "review-fix-rereview", "journey": "审查失败修复复审", "fixture": "review", "phases": [{"id": "repair", "instruction": "合成critic输入在docs/审查输入.md，已观察本地验收失败。授权修复当前slug合同、验证修复并准备当前版本的复审材料。该critic由fixture生成，不是真实独立审查；作者自检不得算独立复审。若独立复审不可用，明确留待真正独立审查者核验并继续可完成的验收。"}], "acceptance": "application"},
+    {"id": "inserted-constraint", "journey": "插入问题和补充约束后继续主线", "fixture": "fresh", "phases": [{"id": "prepare", "instruction": "先核对当前合同与剩余验收，把简短实施准备和下一动作写入plan.md。本轮只准备，暂不修改slug.py，不批准或结束总任务。"}, {"id": "continue", "instruction": "补充约束：slug(None)必须抛出TypeError；原合同其余行为保持。先简短回答当前状态，然后继续已授权主线实现、必要合同文档和本地验收。状态问题和本条补充约束不取消原目标。"}], "acceptance": "application-with-constraint"},
+    {"id": "investigation-return", "journey": "调查分支回收", "fixture": "fresh", "phases": [{"id": "investigate", "instruction": "为剩余slug空白验收调查本地probe.py一次，确认split行为及适用条件，保存简短结论到investigation.md并通过公开CLI保存适当续接信息。本轮只调查，不改slug.py，不把调查通过当成总任务完成。"}, {"id": "resume", "instruction": "调查到此结束。恢复调查结论、适用条件和剩余未知，返回合同.md中的原slug实现及验收主线，持续完成本轮授权范围；不要为了新建议扩展实现范围或重新执行条件未变的调查。"}], "acceptance": "application"},
+    {"id": "narrow-low-risk", "journey": "窄低风险包", "fixture": "narrow", "phases": [{"id": "fix", "instruction": "只修复slug.py两端空白未剔除的问题，保留已有重复空白折叠行为，运行本地验收。此工作范围窄、低风险，不需要新增任务账本或展开无关模块；按源码技能的路由判断是否需要检查点。"}], "acceptance": "application"},
+    {"id": "changed-goal", "journey": "明确撤销原目标后调整范围", "supplemental": true, "fixture": "fresh", "phases": [{"id": "prepare", "instruction": "先核对当前slug合同与剩余验收，把简短计划及下一动作写入plan.md。本轮只准备，禁止修改slug.py，不批准实施，不结束总任务。"}, {"id": "replace", "instruction": "用户明确撤销原slug实现和修复目标：停止原实现主线，不再实现或修复slug。新目标仅为文档交付：只写docs/变更说明.md，说明原目标已撤销、当前范围仅为此说明文档、slug原字节必须保持；不要为了旧验收通过而修改slug。必要目标、包范围和续接调整只通过公开goal/package等CLI，不手写状态。本轮不实施任何slug功能，也不把旧目标验收当作新文档交付要求。"}], "acceptance": "changed-goal-boundary"}
+  ],
+  "limitations": [
+    "核心8个合成本地旅程加1个显式supplemental换目标边界案例是诊断集，不是安装发现、完整发布矩阵或性能改善证明。",
+    "采集失败、timeout及未知项原样保存。",
+    "确定性应用验收不证明独立审查、授权正确性或整个longtask完成。",
+    "关键词仅筛选可审查事件候选，不能证明语义读取量、重复验证无依据或错误询问。"
+  ]
+}
