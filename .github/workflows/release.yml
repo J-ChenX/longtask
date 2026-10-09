@@ -48,6 +48,11 @@ jobs:
           tag = os.environ["RELEASE_TAG"]
           if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version) or tag != f"v{version}":
               sys.exit("Release tag must exactly match the plugin version in release-manifest.json")
+          sections = re.findall(r"^## ([^\n]+)(?:\n|\Z)(.*?)(?=^## |\Z)",
+                                Path("版本说明.md").read_text(encoding="utf-8"), flags=re.MULTILINE | re.DOTALL)
+          changes = [body.strip() for heading, body in sections if heading.strip() == version]
+          if len(changes) != 1 or not changes[0]:
+              sys.exit("版本说明.md must contain exactly one nonempty section headed '## ' plus the release version")
           builder = Path("scripts/build_release.py").resolve()
           archive = Path("dist") / f"longtask-{version}.zip"
           subprocess.run([sys.executable, str(builder), "build", "--root", ".", "--output", str(archive)], check=True)
@@ -66,7 +71,9 @@ jobs:
                              cwd=installed, check=True)
           Path(f"dist/longtask-{version}.sha256").write_text(f"{digest}  {archive.name}\n")
           notes = (
-              f"longtask {version} candidate\n\n"
+              f"# longtask {version} candidate\n\n"
+              f"{changes[0]}\n\n"
+              "## 工件与发布验证\n\n"
               f"Source commit: {os.environ['GITHUB_SHA']}\n"
               f"Archive SHA-256: {digest}\n\n"
               "源码校验、调用语料合同、单元测试、确定性前向合同、双构建与提取后自检已通过。\n\n"

@@ -73,11 +73,19 @@ CI 检查语料和源码并执行当前确定性合同测试，不依赖本地�
 
 ## 自动生成版本候选
 
-更新全部版本元数据并提交后，创建与 `release-manifest.json` 一致的新版本标签，再推送分支和标签，例如：
+每个克隆在仓库内执行一次以下配置，让分支推送自动携带可达且远端缺失的附注标签：
+
+```bash
+git config --local push.followTags true
+```
+
+更新全部版本元数据，并在[版本说明](../版本说明.md)中补充对应的 `## X.Y.Z` 章节，写明主要变化、兼容性和验证范围。说明与源码一起提交后，创建与 `release-manifest.json` 一致的新版本附注标签，再正常推送分支，例如：
 
 ```bash
 git tag -a v4.1.0 -m 'longtask 4.1.0'
-git push origin main v4.1.0
+git push origin main
 ```
+
+该配置只保存在当前克隆的 `.git/config`，不随提交共享；它不会自动创建标签或同步轻量标签，也不会覆盖远端已有标签。单次推送可用 `git push --no-follow-tags origin main` 暂停携带标签；未启用配置时可用 `git push --follow-tags origin main`。
 
 标签对应提交必须包含候选发布工作流。GitHub Actions 自动执行检查、打包并上传 ZIP 与校验文件到候选预发布；普通 commit 不生成 Release。完整条件、失败恢复及正式发布边界见[发布合同](../references/发布与恢复.md#github-候选预发布)。
