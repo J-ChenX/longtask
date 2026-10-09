@@ -109,7 +109,7 @@ flowchart TD
 | 审查者结构 | expert-system | workflow/状态审查门 | 审查集成者 | 逐工作包角色覆盖、reviewer quorum 与 schema 对抗测试 |
 | 调用语料 | evaluation | 技能发现评测者 | 评测维护者 | 平衡盲测结果评分 |
 | 发布资源闭包 | `release-manifest.json` | Codex 个人 marketplace 安装、宿主评测与当前版本恢复 | 发布维护者 | 确定性双构建、逐文件摘要、受信归档摘要、隔离提取和个人市场模板校验 |
-| 仓库内容与技能展示 | 首页、社区入口、单一 `agents/openai.yaml` | 使用者、贡献者、Codex 发现界面 | 仓库维护者 | Skill/展示校验、发现面绑定、PR CI 与归档导航闭包 |
+| 仓库内容与技能展示 | 首页、社区入口、单一 `agents/openai.yaml` | 使用者、贡献者、Codex 发现界面 | 仓库维护者 | Skill/展示校验、发现面绑定、PR CI、自动候选发布边界与归档导航闭包 |
 
 ## 架构决策
 

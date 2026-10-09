@@ -83,21 +83,31 @@ codex plugin add longtask@personal
 longtask 通过一个入口选择当前工作流，把长期项目知识与临时执行状态分开保存，并用当前版本的验证与审查判断是否完成。
 
 ```mermaid
-flowchart TD
-    Request["用户目标与授权范围"] --> Route["longtask：结合意图与可靠项目基础选择模式"]
-    Route --> Prepare["setup / retrofit：建立设计或补齐理解"]
-    Route --> Work["continue / modify：沿合同推进或协调合同变更"]
-    Route --> Review["review：核验指定版本"]
-    Prepare --> Knowledge["项目文档：目标、架构、合同与决策"]
-    Knowledge --> Work
-    Checkpoint["临时检查点：当前任务、工作包与交接"] <--> Work
-    Work --> Evidence["验证证据：绑定 Git 版本与产物摘要"]
-    Evidence --> Review
-    Review -->|发现阻断问题，且修复已授权| Work
-    Review --> Gate{"验收、独立审查、知识与清理义务均满足？"}
-    Gate -->|尚未满足| Checkpoint
-    Gate -->|全部满足| Finish["finish：清除临时状态，保留当前项目知识"]
+flowchart LR
+    Goal("目标与授权") --> Route("longtask<br/>选择模式")
+    Route --> Work("推进工作包") --> Check("验证与审查")
+    Check -->|满足完成合同| Finish("完成与清理")
+    Check -->|修复已授权| Work
+
+    Knowledge("项目知识") -.-> Route
+    Knowledge -.-> Work
+    Work <-->|保存 / 恢复| State("临时检查点")
+    Evidence("版本证据") -.-> Check
+
+    classDef flow fill:#f6f8fa,stroke:#d1d9e0,color:#1f2328,stroke-width:1px
+    classDef focus fill:#eef5ff,stroke:#a8c7eb,color:#1f2328,stroke-width:1px
+    classDef knowledge fill:#f0fdf4,stroke:#bbd9c4,color:#1f2328,stroke-width:1px
+    classDef checkpoint fill:#fff7ed,stroke:#e5cfb5,color:#1f2328,stroke-width:1px
+    classDef evidence fill:#f5f3ff,stroke:#d4c9ee,color:#1f2328,stroke-width:1px
+    class Goal,Work,Finish flow
+    class Route,Check focus
+    class Knowledge knowledge
+    class State checkpoint
+    class Evidence evidence
+    linkStyle default stroke:#8c959f,stroke-width:1px
 ```
+
+主图概括整体实施闭环；各模式及只规划、只查看、只审查的出口见上文，资料用途与收尾条件见下文。
 
 ### 一次任务怎样推进
 
@@ -125,7 +135,7 @@ flowchart TD
 
 CI 和本地合同测试证明源码结构及可复现行为。真实宿主发布资格与效率收益需要各自的版本绑定证据，不能从 CI 通过推导。运行结果不进入 Git 或安装包，详见[项目规范](AGENTS.md#源码与产物架构规范)与[发布门](references/发布与恢复.md#单宿主发布门)。
 
-推送与插件版本一致的 `vX.Y.Z` 标签后，GitHub Actions 自动检查、打包并上传安装 ZIP 与校验文件到候选预发布。普通 commit 不生成 Release；候选不会自动升级为正式发布，条件见[标签发布合同](references/发布与恢复.md#github-候选预发布)。
+更新版本元数据和版本说明后推送 `main`，GitHub Actions 自动检测尚未发布的版本，通过检查后创建标签、打包并上传候选预发布，无需手动创建版本标签。已发布的同版提交跳过发布；候选不会自动升级为正式发布，条件见[自动发布合同](references/发布与恢复.md#github-候选预发布)。
 
 ## 本地验证
 

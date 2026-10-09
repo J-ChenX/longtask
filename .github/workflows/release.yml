@@ -2,22 +2,51 @@ name: Candidate release
 
 on:
   push:
+    branches: [main]
     tags: ["v*.*.*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: candidate-release-${{ github.ref }}
+  group: candidate-release
   cancel-in-progress: false
+  queue: max
 
 jobs:
+  plan:
+    name: Detect unpublished version
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      publish: ${{ steps.version.outputs.publish }}
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Detect missing candidate
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 .github/scripts/publish_candidate.py plan
+
   checks:
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
     uses: ./.github/workflows/ci.yml
 
   release:
     name: Build and publish candidate
-    needs: checks
+    needs: [plan, checks]
+    if: needs.plan.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -25,6 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -32,7 +62,7 @@ jobs:
       - name: Verify tag and build complete plugin
         id: package
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
         run: |
           python3 - <<'PY'
           import hashlib
@@ -90,17 +120,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
           RELEASE_VERSION: ${{ steps.package.outputs.version }}
         run: |
-          remote_commit="$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq .sha)"
-          if [ "$remote_commit" != "$GITHUB_SHA" ]; then
-            echo "Remote tag changed since this workflow started" >&2
-            exit 1
-          fi
-          gh release create "$RELEASE_TAG" \
-            "dist/longtask-$RELEASE_VERSION.zip" \
-            "dist/longtask-$RELEASE_VERSION.sha256" \
-            --verify-tag --prerelease --latest=false \
-            --title "longtask $RELEASE_VERSION (candidate)" \
-            --notes-file dist/release-notes.txt
+          python3 .github/scripts/publish_candidate.py publish
