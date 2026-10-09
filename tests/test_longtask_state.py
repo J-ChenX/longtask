@@ -1957,14 +1957,20 @@ class LongtaskStateTests(unittest.TestCase):
         self.assertNotEqual(help_result.returncode, 0)
         self.assertIn("invalid choice", help_result.stderr)
 
-    def test_pre_3_skill_state_is_rejected_without_compatibility_reading(self) -> None:
+    def test_old_skill_state_is_rejected_without_compatibility_reading(self) -> None:
         state = self.init("setup")
-        state["skill_version"] = "2.0.0"
+        self.assertEqual(state["schema_version"], 3)
+        self.assertEqual(state["skill_version"], "4.0.0")
         path = self.root / ".longtask" / "state.json"
-        path.write_text(json.dumps(state), encoding="utf-8")
-        routed = self.route()
-        self.assertEqual(routed["entry"], "error")
-        self.assertIn("unsupported skill_version: '2.0.0'", routed["reason"])
+        for version in ("1.0.0", "2.0.0", "3.0.0"):
+            with self.subTest(version=version):
+                state["skill_version"] = version
+                path.write_text(json.dumps(state), encoding="utf-8")
+                before = path.read_bytes()
+                routed = self.route()
+                self.assertEqual(routed["entry"], "error")
+                self.assertIn(f"unsupported skill_version: {version!r}", routed["reason"])
+                self.assertEqual(path.read_bytes(), before)
 
     def test_runtime_validates_evidence_on_noncomplete_packages(self) -> None:
         state = self.init("setup")

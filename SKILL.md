@@ -4,7 +4,7 @@ description: 编排需跨上下文恢复或协调独立验收包的编码任务�
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
-  version: "3.0.0"
+  version: "4.0.0"
 ---
 
 # 长任务编排
@@ -21,7 +21,7 @@ python3 {skill-root}/scripts/longtask_state.py context --root {workspace-root} -
 
 已知工作包可直接取详情，概览不能作为执行依据。恢复动作已由请求或有效授权明确时，首次查询带 `--resume-choice resume|review|inspect`；详情中 `recovery.selection_available=true` 才采用该动作。输入、诊断及异常的消费见[续接入口](skills/longtask-continue/SKILL.md#恢复决策)，不重复查询同一结论。
 
-交接过期或阶段冲突时，先消费已有诊断；缺少定位依据才运行 `doctor --root {workspace-root} --output summary`。只接受当前 v3 状态和结构化 `handoff`，不执行旧帧，不迁移 1.x/2.x，也不从旧/无效状态继承批准、审查或完成声明。
+交接过期或阶段冲突时，先消费已有诊断；缺少定位依据才运行 `doctor --root {workspace-root} --output summary`。只接受当前 v3 状态和结构化 `handoff`，不执行旧帧，不迁移 1.x/2.x/3.x，也不从旧/无效状态继承批准、审查或完成声明。
 
 ## 模式参考
 

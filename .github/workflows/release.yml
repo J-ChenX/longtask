@@ -1,0 +1,99 @@
+name: Candidate release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: candidate-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: Build and publish candidate
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Verify tag and build complete plugin
+        id: package
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+          import tempfile
+          from pathlib import Path
+
+          version = json.loads(Path("release-manifest.json").read_text())["version"]
+          tag = os.environ["RELEASE_TAG"]
+          if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version) or tag != f"v{version}":
+              sys.exit("Release tag must exactly match the plugin version in release-manifest.json")
+          builder = Path("scripts/build_release.py").resolve()
+          archive = Path("dist") / f"longtask-{version}.zip"
+          subprocess.run([sys.executable, str(builder), "build", "--root", ".", "--output", str(archive)], check=True)
+          subprocess.run([sys.executable, str(builder), "verify", "--root", ".", "--archive", str(archive)], check=True)
+          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+          with tempfile.TemporaryDirectory() as temporary:
+              rebuilt = Path(temporary) / archive.name
+              subprocess.run([sys.executable, str(builder), "build", "--root", ".", "--output", str(rebuilt)], check=True)
+              if hashlib.sha256(rebuilt.read_bytes()).hexdigest() != digest:
+                  sys.exit("Repeated release builds differ")
+              destination = Path(temporary) / "installed"
+              subprocess.run([sys.executable, str(builder), "extract", "--archive", str(archive),
+                              "--destination", str(destination), "--expected-sha256", digest], check=True)
+              installed = destination / "longtask"
+              subprocess.run([sys.executable, str(installed / "scripts/validate_longtask.py"), "--installed"],
+                             cwd=installed, check=True)
+          Path(f"dist/longtask-{version}.sha256").write_text(f"{digest}  {archive.name}\n")
+          notes = (
+              f"longtask {version} candidate\n\n"
+              f"Source commit: {os.environ['GITHUB_SHA']}\n"
+              f"Archive SHA-256: {digest}\n\n"
+              "源码校验、调用语料合同、单元测试、确定性前向合同、双构建与提取后自检已通过。\n\n"
+              "此候选预发布尚未通过真实 Codex 宿主发布门及当前版本恢复验收；"
+              "它不证明真实模型行为或性能收益。正式发布资格须另行通过 "
+              "scripts/validate_longtask.py --require-release-pass。\n\n"
+              "安装步骤与兼容性请参阅当前版本的 README 和 references/发布与恢复.md。\n"
+          )
+          Path("dist/release-notes.txt").write_text(notes, encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"version={version}\n")
+          PY
+      - name: Publish candidate with verified assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          remote_commit="$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq .sha)"
+          if [ "$remote_commit" != "$GITHUB_SHA" ]; then
+            echo "Remote tag changed since this workflow started" >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" \
+            "dist/longtask-$RELEASE_VERSION.zip" \
+            "dist/longtask-$RELEASE_VERSION.sha256" \
+            --verify-tag --prerelease --latest=false \
+            --title "longtask $RELEASE_VERSION (candidate)" \
+            --notes-file dist/release-notes.txt

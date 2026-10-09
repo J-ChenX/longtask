@@ -53,8 +53,8 @@ python3 scripts/run_forward_evals.py --run
 # 执行确定性前向套件并保存本次结果
 python3 scripts/run_forward_evals.py --write
 # 重建本地候选，避免 dist 中旧归档与源码不一致
-python3 scripts/build_release.py build --root . --output dist/longtask-3.0.0.zip
-python3 scripts/build_release.py verify --root . --archive dist/longtask-3.0.0.zip
+python3 scripts/build_release.py build --root . --output dist/longtask-4.0.0.zip
+python3 scripts/build_release.py verify --root . --archive dist/longtask-4.0.0.zip
 ```
 
 发现元数据变化须按[调用评测协议](../references/评测协议.md)重新采样，不手动重绑旧分类。宿主结果必须保留真实的保证级别：没有在当前归档上采样的场景为 `unable_to_verify`，发布门保持阻塞。评测记录的更新不等于真实执行通过。
@@ -70,3 +70,14 @@ CI 检查语料和源码并执行当前确定性合同测试，不依赖本地�
 提交说明使用简短的 `docs:`、`fix:`、`feat:`、`test:` 或 `ci:` 前缀即可，无需为文档修改提升技能版本。不要包含评测结果、trace、快照、`.longtask/`、`dist/`、个人配置或秘密；保留无关改动。按[行为准则](CODE_OF_CONDUCT.md)参与讨论。
 
 贡献将以仓库的 [MIT 许可证](../LICENSE)分发。个人维护项目不承诺固定响应时间。
+
+## 自动生成版本候选
+
+更新全部版本元数据并提交后，创建与 `release-manifest.json` 一致的新版本标签，再推送分支和标签，例如：
+
+```bash
+git tag -a v4.1.0 -m 'longtask 4.1.0'
+git push origin main v4.1.0
+```
+
+标签对应提交必须包含候选发布工作流。GitHub Actions 自动执行检查、打包并上传 ZIP 与校验文件到候选预发布；普通 commit 不生成 Release。完整条件、失败恢复及正式发布边界见[发布合同](../references/发布与恢复.md#github-候选预发布)。

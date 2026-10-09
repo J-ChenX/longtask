@@ -1,0 +1,497 @@
+{
+  "schema_version": 1,
+  "suite": "setup_document_quality",
+  "dimensions": {
+    "SU01": {
+      "name": "业务问答",
+      "question": "业务问题是否有答案、来源或显式待定，并说明规则、边界与验收影响？",
+      "pass_criteria": "角色、场景、业务规则和成功结果可执行，缺失答案及影响显式保留。",
+      "failure_signals": "把建议当用户事实；只有宽泛目标或问卷，无当前答案。"
+    },
+    "SU02": {
+      "name": "技术推荐与取舍",
+      "question": "技术问题是否给出适配约束的明确推荐及有意义的备选？",
+      "pass_criteria": "推荐理由绑定当前需求，代价及改变选择的条件可理解；相关版本、许可、维护状态及兼容性有依据，或明确未知、影响与核验方法。",
+      "failure_signals": "只罗列技术名或无条件引入未来组件；遗漏相关版本、许可、维护状态核验，或把未核验选型写成已验证。"
+    },
+    "SU03": {
+      "name": "目标关联",
+      "question": "页面、模块、技术决定和验收是否能回到本期业务目标？",
+      "pass_criteria": "核心场景与主要设计有可追溯关联，范围变化有来源。",
+      "failure_signals": "悄悄扩大目标；新增设计无当前消费者或需求。"
+    },
+    "SU04": {
+      "name": "架构覆盖与贯穿",
+      "question": "适用设计区域及核心场景是否连通职责、状态、契约和失败边界？",
+      "pass_criteria": "模块职责与非职责、状态所有者、通信和关键失败路径一致。",
+      "failure_signals": "把层、模块和部署单元混为一谈；关键场景无法贯通。"
+    },
+    "SU05": {
+      "name": "视觉与交互规格",
+      "question": "有界面时是否形成具体视觉和交互规格？",
+      "pass_criteria": "信息层级、布局、Tokens、代表页面、必要状态及适配足以实现。",
+      "failure_signals": "只有现代简洁等形容词；忽略加载、错误或键盘操作。"
+    },
+    "SU06": {
+      "name": "全局与页面差异",
+      "question": "全局规范与页面特例的关系是否清楚？",
+      "pass_criteria": "共享规则有唯一来源，页面只记录有原因的差异。",
+      "failure_signals": "各页面复制整套规则或任意覆盖全局风格。"
+    },
+    "SU07": {
+      "name": "裁剪与唯一权威",
+      "question": "内容深度与文档展开是否匹配项目和消费者？",
+      "pass_criteria": "小项目精简、复杂合同展开，引用替代重复规则。",
+      "failure_signals": "固定文件包、无用组件或重复合同增加维护负担。"
+    },
+    "SU08": {
+      "name": "决定参数与证据",
+      "question": "架构决定、实施参数、建议和验证证据是否区分？",
+      "pass_criteria": "决策状态准确；未验证兼容性和环境参数不伪装成事实。",
+      "failure_signals": "缺端口就称架构未完成；推荐冒充批准或测量通过。"
+    },
+    "SU09": {
+      "name": "规划充分性",
+      "question": "规划是否足够下一位实施者续接，同时及时交付？",
+      "pass_criteria": "下一动作、依赖、验收与影响实施的未知清晰，可消费现有设计。",
+      "failure_signals": "章节齐全却关键行为缺失；无新事实持续扩写。"
+    },
+    "SU10": {
+      "name": "前端基础前置",
+      "question": "信息架构、核心交互、基础视觉和可访问性是否属于前期合同？",
+      "pass_criteria": "核心操作及必需状态在实施前明确，后期只打磨范围内细节。",
+      "failure_signals": "将核心交互和可访问性整体推迟到功能完成后。"
+    },
+    "SU11": {
+      "name": "按需与授权",
+      "question": "是否按当前任务消费资料，并遵守仅规划和已有授权？",
+      "pass_criteria": "读取有用途，授权边界沿用可信会话，必要未知不阻断无关工作。",
+      "failure_signals": "无条件全量阅读、重复许可、只规划时实施应用。"
+    },
+    "SU12": {
+      "name": "范例及独立语义消费",
+      "question": "少量范例是否服务真实字段理解，独立消费者能否检验设计？",
+      "pass_criteria": "只在有帮助时举例且不继承样例产品事实；独立消费能定位合同及缺口。",
+      "failure_signals": "例子成为必填模板；用标题数或作者自评替代语义核验。"
+    }
+  },
+  "cases": [
+    {
+      "id": "broad-service",
+      "scenario": "宽泛新项目需求",
+      "fixture_files": {
+        ".gitignore": ".longtask/\n"
+      },
+      "write_scope": [
+        "docs/**/*.md",
+        ".longtask/** (only public state CLI)",
+        ".gitignore (only necessary longtask initialization ignore)",
+        "independent_consumer phase is read-only; response only"
+      ],
+      "phases": [
+        {
+          "id": "plan",
+          "role": "author",
+          "prompt": "这是一个全新合成项目。我想做供园区团队使用的维修报修服务，跨会话完成。本轮只做产品、架构及前端设计文档，不实施应用。首期围绕员工报修、维修员处理、管理者查询；具体规则不足时给当前建议并标明待定，业务问题形成答案，技术问题给推荐及取舍。资料足以支持下一步时交付，并说明仍影响实施的未知。"
+        }
+      ],
+      "dimensions": [
+        "SU01",
+        "SU02",
+        "SU03",
+        "SU04",
+        "SU05",
+        "SU06",
+        "SU07",
+        "SU08",
+        "SU09",
+        "SU10",
+        "SU11",
+        "SU12"
+      ],
+      "must_observe": [
+        "范围基线贯穿主要页面和模块；不确定业务规则保留来源与影响；交付可消费设计。"
+      ],
+      "failure_signals": [
+        "扩展计费、商城或IoT平台；穷举技术而无结论；只列章节。"
+      ]
+    },
+    {
+      "id": "fixed-stack",
+      "scenario": "已有明确技术选择",
+      "fixture_files": {
+        ".gitignore": ".longtask/\n"
+      },
+      "write_scope": [
+        "docs/**/*.md",
+        ".longtask/** (only public state CLI)",
+        ".gitignore (only necessary longtask initialization ignore)",
+        "independent_consumer phase is read-only; response only"
+      ],
+      "phases": [
+        {
+          "id": "plan",
+          "role": "author",
+          "prompt": "这是全新合成项目，本轮仅规划跨会话建设的预约系统并文档化。用户已明确采用 Vue 3、FastAPI 和 PostgreSQL；沿用此选择。首期用户预约、管理员设置时段、取消预约。冲突预约不得成功，取消后名额释放。单一部署环境且无需离线。给出职责、状态和接口边界、代表页面与验收；兼容性尚未实际验证。"
+        }
+      ],
+      "dimensions": [
+        "SU01",
+        "SU02",
+        "SU03",
+        "SU04",
+        "SU05",
+        "SU06",
+        "SU07",
+        "SU08",
+        "SU09",
+        "SU10",
+        "SU11",
+        "SU12"
+      ],
+      "must_observe": [
+        "沿用已选技术，补充规则落实与兼容性验证条件；取消和竞争时段场景连通。",
+        "相关版本、许可、维护状态及兼容性给出可核验依据；未知处说明影响与核验方法，不能擅自更改已选技术。"
+      ],
+      "failure_signals": [
+        "无理由改栈；把指定技术兼容性写成已验证；为小服务加入微服务。",
+        "完全遗漏版本、许可和维护状态核验；未知没有影响说明及核验办法。"
+      ]
+    },
+    {
+      "id": "fullstack-workflow",
+      "scenario": "复杂全栈核心场景",
+      "fixture_files": {
+        ".gitignore": ".longtask/\n"
+      },
+      "write_scope": [
+        "docs/**/*.md",
+        ".longtask/** (only public state CLI)",
+        ".gitignore (only necessary longtask initialization ignore)",
+        "independent_consumer phase is read-only; response only"
+      ],
+      "phases": [
+        {
+          "id": "plan",
+          "role": "author",
+          "prompt": "全新合成项目，准备跨会话建设费用审批服务，本轮只交付设计文档。员工提交费用并上传凭证，经理审批，财务确认后导出支付批次。经理仅处理自己部门，财务不能修改已审批金额；退回允许修改后再提交，同一申请重复确认不能重复支付。需桌面操作及员工手机提交。请明确业务生命周期、权限、数据归属、前后端合同、文件上传、失败与恢复、技术推荐、核心场景对应页面和验收。"
+        }
+      ],
+      "dimensions": [
+        "SU01",
+        "SU02",
+        "SU03",
+        "SU04",
+        "SU05",
+        "SU06",
+        "SU07",
+        "SU08",
+        "SU09",
+        "SU10",
+        "SU11",
+        "SU12"
+      ],
+      "must_observe": [
+        "至少决定架构的核心场景贯通权限、状态、事务或幂等、接口与反馈；视觉规格匹配桌面和手机任务。"
+      ],
+      "failure_signals": [
+        "只有前后端数据库名单；付款和授权边界不明确；列队列但无当前需求。"
+      ]
+    },
+    {
+      "id": "small-cli",
+      "scenario": "小型跨会话CLI裁剪",
+      "fixture_files": {
+        ".gitignore": ".longtask/\n"
+      },
+      "write_scope": [
+        "docs/**/*.md",
+        ".longtask/** (only public state CLI)",
+        ".gitignore (only necessary longtask initialization ignore)",
+        "independent_consumer phase is read-only; response only"
+      ],
+      "phases": [
+        {
+          "id": "plan",
+          "role": "author",
+          "prompt": "全新合成项目，跨会话建设本地 CSV 汇总 CLI，本轮只规划。读取带日期、类别、金额的 CSV，按月和类别汇总输出 UTF-8 CSV；非法金额报错且不生成部分输出。离线单用户、不提供网站或服务端。请给实施文档、必要技术推荐和验收，保留下一会话能实现的合同。业务范围已经确定，不必继续扩展。"
+        }
+      ],
+      "dimensions": [
+        "SU01",
+        "SU02",
+        "SU03",
+        "SU04",
+        "SU07",
+        "SU08",
+        "SU09",
+        "SU11",
+        "SU12"
+      ],
+      "must_observe": [
+        "输入输出、错误原子性和实现验收清楚；无前端和网络边界时省略对应规格。"
+      ],
+      "failure_signals": [
+        "为模板完整性增加页面、HTTP、Kubernetes；把小CLI规划扩为通用平台。"
+      ]
+    },
+    {
+      "id": "visual-reference",
+      "scenario": "明确视觉参考继承",
+      "fixture_files": {
+        ".gitignore": ".longtask/\n",
+        "参考.md": "视觉参考合同：浅色背景 #F6F7F9，正文 #20242B，主操作 #2457C5；紧凑列表但按钮触达区域至少 44px。桌面左导航，手机折叠导航。颜色辅以文字表达状态。只继承这些视觉规则，参考不定义设备借用业务。\n"
+      },
+      "write_scope": [
+        "docs/**/*.md",
+        ".longtask/** (only public state CLI)",
+        ".gitignore (only necessary longtask initialization ignore)",
+        "independent_consumer phase is read-only; response only"
+      ],
+      "phases": [
+        {
+          "id": "plan",
+          "role": "author",
+          "prompt": "全新合成项目，本轮只文档化跨会话建设的内部设备借用系统。用户已指定视觉参考为本地参考.md：保留其色彩、密度和导航约定。页面为设备列表、借用申请、我的借用，桌面优先但手机可操作。设备状态包括可用、已借出、维修中；重复借用不可成功。给全局视觉与交互规则、代表布局及页面特例，不要实施应用。"
+        }
+      ],
+      "dimensions": [
+        "SU01",
+        "SU02",
+        "SU03",
+        "SU04",
+        "SU05",
+        "SU06",
+        "SU07",
+        "SU08",
+        "SU09",
+        "SU10",
+        "SU11",
+        "SU12"
+      ],
+      "must_observe": [
+        "指出继承范围；共享Tokens与特例关系清楚；状态、布局与可访问性足以实施。"
+      ],
+      "failure_signals": [
+        "把参考产品的数据字段和模块照搬；所有页面复制全局规则；任意改掉用户视觉选择。"
+      ]
+    },
+    {
+      "id": "visual-no-reference",
+      "scenario": "无视觉参考的业务界面",
+      "fixture_files": {
+        ".gitignore": ".longtask/\n"
+      },
+      "write_scope": [
+        "docs/**/*.md",
+        ".longtask/** (only public state CLI)",
+        ".gitignore (only necessary longtask initialization ignore)",
+        "independent_consumer phase is read-only; response only"
+      ],
+      "phases": [
+        {
+          "id": "plan",
+          "role": "author",
+          "prompt": "全新合成项目，本轮只规划跨会话建设的仓库盘点界面。仓管员每天在平板上高频录入库存差异，主管在桌面查看差异并确认。无品牌和视觉参考。首期扫码查找、修改数量、保存草稿、提交确认；提交后普通员工不能修改。请根据任务、内容和密度给明确视觉建议、布局、Tokens、组件状态、窄屏及键盘行为，并形成可实施文档。"
+        }
+      ],
+      "dimensions": [
+        "SU01",
+        "SU02",
+        "SU03",
+        "SU04",
+        "SU05",
+        "SU06",
+        "SU07",
+        "SU08",
+        "SU09",
+        "SU10",
+        "SU11",
+        "SU12"
+      ],
+      "must_observe": [
+        "设计依据能解释高频操作、平板触达、桌面比对与状态反馈；视觉值明确标记为建议。"
+      ],
+      "failure_signals": [
+        "仅现代简洁；无依据追逐装饰风格；建议冒充已有品牌规范。"
+      ]
+    },
+    {
+      "id": "missing-parameters",
+      "scenario": "实施参数缺失",
+      "fixture_files": {
+        ".gitignore": ".longtask/\n"
+      },
+      "write_scope": [
+        "docs/**/*.md",
+        ".longtask/** (only public state CLI)",
+        ".gitignore (only necessary longtask initialization ignore)",
+        "independent_consumer phase is read-only; response only"
+      ],
+      "phases": [
+        {
+          "id": "plan",
+          "role": "author",
+          "prompt": "全新合成项目，跨会话建设只在团队内使用的单机工时系统，本轮仅规划文档。Web前端、单一后端、关系数据库，成员记录工时，主管查看周汇总；已确认每人只能修改自己的记录。部署机器、端口、域名和凭据尚未知，现阶段无需选择具体值。给有依据的技术推荐和边界，区分当前架构决定、实施时填入的配置、需验证的兼容性与真实阻断问题。"
+        }
+      ],
+      "dimensions": [
+        "SU01",
+        "SU02",
+        "SU03",
+        "SU04",
+        "SU05",
+        "SU06",
+        "SU07",
+        "SU08",
+        "SU09",
+        "SU10",
+        "SU11",
+        "SU12"
+      ],
+      "must_observe": [
+        "不因端口/机器未知阻止可完成的设计；需要的业务未知及其影响明确。"
+      ],
+      "failure_signals": [
+        "把所有环境配置列为架构阻断；凭空给生产参数和验证成功。"
+      ]
+    },
+    {
+      "id": "multi-turn-scope",
+      "scenario": "多轮补充与修复引用",
+      "fixture_files": {
+        ".gitignore": ".longtask/\n"
+      },
+      "write_scope": [
+        "docs/**/*.md",
+        ".longtask/** (only public state CLI)",
+        ".gitignore (only necessary longtask initialization ignore)",
+        "independent_consumer phase is read-only; response only"
+      ],
+      "phases": [
+        {
+          "id": "initial",
+          "role": "author",
+          "prompt": "全新合成项目，本轮只规划跨会话建设的设备巡检系统并保存设计文档。员工录入巡检结果，主管查看异常；首期网页在线使用，设备档案只读。请给业务答案、推荐技术、职责合同、基础视觉与验收。"
+        },
+        {
+          "id": "update",
+          "role": "author",
+          "prompt": "补充本期规则：异常结果必须附备注；员工只能修改自己当天尚未提交的结果；手机也要方便录入。请更新同一份设计及所有受影响的合同和验收，继续仅文档，不增加离线、排班或薪资功能。"
+        }
+      ],
+      "dimensions": [
+        "SU01",
+        "SU02",
+        "SU03",
+        "SU04",
+        "SU05",
+        "SU06",
+        "SU07",
+        "SU08",
+        "SU09",
+        "SU10",
+        "SU11",
+        "SU12"
+      ],
+      "must_observe": [
+        "同一文档更新影响范围、规则、页面和验收；新增约束有来源；保留初期业务中心。"
+      ],
+      "failure_signals": [
+        "新开一份完整设计形成冲突；顺便扩成排班薪资系统；只回答补充而不更新合同。"
+      ]
+    },
+    {
+      "id": "planning-boundary",
+      "scenario": "只规划与交付出口",
+      "fixture_files": {
+        ".gitignore": ".longtask/\n"
+      },
+      "write_scope": [
+        "docs/**/*.md",
+        ".longtask/** (only public state CLI)",
+        ".gitignore (only necessary longtask initialization ignore)",
+        "independent_consumer phase is read-only; response only"
+      ],
+      "phases": [
+        {
+          "id": "plan",
+          "role": "author",
+          "prompt": "全新合成项目，需要跨会话建设本地知识检索服务。本轮严格只规划，可保存设计和公开CLI检查点；不实现应用、不批准实施，也不声称总目标完成。首期导入文本、关键词搜索、查看来源。单用户本地使用，无外网或账号。业务目标足够明确，技术问题由你给推荐。交付可续接的范围、模块和契约、代表页面、验收、关键未知及下一动作。"
+        }
+      ],
+      "dimensions": [
+        "SU01",
+        "SU02",
+        "SU03",
+        "SU04",
+        "SU05",
+        "SU06",
+        "SU07",
+        "SU08",
+        "SU09",
+        "SU10",
+        "SU11",
+        "SU12"
+      ],
+      "must_observe": [
+        "本轮交付规划，明确剩余实施；产物足够下一会话消费。"
+      ],
+      "failure_signals": [
+        "擅自实现；无限细化不交付；规划通过就声明应用已完成。"
+      ]
+    },
+    {
+      "id": "independent-consumer",
+      "scenario": "独立实现者消费",
+      "fixture_files": {
+        ".gitignore": ".longtask/\n"
+      },
+      "write_scope": [
+        "docs/**/*.md",
+        ".longtask/** (only public state CLI)",
+        ".gitignore (only necessary longtask initialization ignore)",
+        "independent_consumer phase is read-only; response only"
+      ],
+      "phases": [
+        {
+          "id": "design",
+          "role": "author",
+          "prompt": "全新合成项目，跨会话建设团队会议室预约应用，本轮只保存产品、架构和前端设计文档。成员选择空闲时段预约，组织者取消预约；不能重叠，取消后重新可约。使用组织已有身份服务，不建设账号系统。技术给推荐及理由，文档须能给下一位实现者使用，标明建议和待定。"
+        },
+        {
+          "id": "consume",
+          "role": "independent_consumer",
+          "prompt": "你是新的只读消费者，未参与设计，不读取作者对话。只消费设计产物及本案例用户业务合同。说明你将如何实现一次预约与取消：页面及反馈、授权、状态归属、契约、竞争失败、数据变化和验收。列出能定位的文档依据及真正阻断实施的缺失决定，不补写设计、不实施应用。"
+        }
+      ],
+      "dimensions": [
+        "SU01",
+        "SU02",
+        "SU03",
+        "SU04",
+        "SU05",
+        "SU06",
+        "SU07",
+        "SU08",
+        "SU09",
+        "SU10",
+        "SU11",
+        "SU12"
+      ],
+      "must_observe": [
+        "消费方仅凭指定文档和用户合同定位业务、模块、视觉及验收；缺口如实报告。"
+      ],
+      "failure_signals": [
+        "消费方依赖作者会话才能理解；把主观自评当独立审查；为评分临时补应用。"
+      ]
+    }
+  ],
+  "limitations": [
+    "案例与维度检查只证明覆盖，不证明模型产出质量。",
+    "SU12检查范例适用性和消费结果，不要求每份输出都有范例。",
+    "独立消费者必须使用新上下文，语义评审者不能是该产物作者；角色字符串本身不认证隔离。",
+    "真实trace、产物及独立逐维度判断才能提供行为证据；不按关键词、标题数或文件数评分。",
+    "所有重复采样及失败、超时、未完成样本均须保留；部分案例不能宣称整体行为通过。"
+  ]
+}

@@ -11,6 +11,12 @@ longtask 是面向 Codex 的个人编码技能插件。它保存项目知识和�
 
 [快速开始](#快速开始) · [选择入口](#入口技能) · [文档导航](#文档导航) · [参与贡献](#参与贡献)
 
+## 4.0.0 更新
+
+- 新项目规划明确业务架构、生产方与消费方的数据完整性、技术选型核验，以及前端视觉与交互的前期交付合同。
+- 增加逐维度的新项目文档质量案例与独立消费评测；保留失败、缺失和证据失配，避免将采集成功误判为验收通过。
+- 完整插件、六个入口及状态中的技能版本统一为 4.0.0；状态结构仍为 `schema_version=3`，旧技能版本检查点与运行证据不直接复用。升级与恢复边界见[发布合同](references/发布与恢复.md#兼容性策略)。
+
 ## 适用场景
 
 - 任务需要跨越上下文压缩、重启或多次会话。
@@ -30,8 +36,8 @@ longtask 是面向 Codex 的个人编码技能插件。它保存项目知识和�
 ```bash
 git clone https://github.com/J-ChenX/longtask.git
 cd longtask
-python3 scripts/build_release.py build --root . --output dist/longtask-3.0.0.zip
-python3 scripts/build_release.py verify --root . --archive dist/longtask-3.0.0.zip
+python3 scripts/build_release.py build --root . --output dist/longtask-4.0.0.zip
+python3 scripts/build_release.py verify --root . --archive dist/longtask-4.0.0.zip
 ```
 
 构建与验证确认归档和源码一致。安装及发布还需相应验收证据；其他渠道的归档须核对受信 SHA-256。
@@ -86,9 +92,11 @@ flowchart LR
 
 ## 兼容性与验证边界
 
-**3.0.0 仅支持 Codex。** 不读取或迁移 1.x/2.x 状态，不支持跨版本回滚；故障恢复使用同版本受信工件。
+**4.0.0 仅支持 Codex。** 不读取或迁移 1.x/2.x/3.x 状态，不支持跨版本回滚；故障恢复使用同版本受信工件。
 
 CI 和本地合同测试证明源码结构及可复现行为。真实宿主发布资格与效率收益需要各自的版本绑定证据，不能从 CI 通过推导。运行结果不进入 Git 或安装包，详见[项目规范](AGENTS.md#源码与产物架构规范)与[发布门](references/发布与恢复.md#单宿主发布门)。
+
+推送与插件版本一致的 `vX.Y.Z` 标签后，GitHub Actions 自动检查、打包并上传安装 ZIP 与校验文件到候选预发布。普通 commit 不生成 Release；候选不会自动升级为正式发布，条件见[标签发布合同](references/发布与恢复.md#github-候选预发布)。
 
 ## 本地验证
 

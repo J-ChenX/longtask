@@ -813,7 +813,7 @@ class ValidatorTests(unittest.TestCase):
             root = Path(temporary)
             (root / "scripts").mkdir()
             (root / "scripts/build_release.py").write_text("# fixture\n")
-            (root / "release-manifest.json").write_text(json.dumps({"package": "longtask", "version": "3.0.0"}))
+            (root / "release-manifest.json").write_text(json.dumps({"package": "longtask", "version": "4.0.0"}))
             (root / "evals").mkdir()
             data = self.host_fixture()
             (root / "evals/host_results.json").write_text(json.dumps(data))
@@ -887,14 +887,14 @@ class ValidatorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=PROJECT) as temporary:
             path = Path(temporary) / "SKILL.md"
             path.write_text(
-                "---\nname: temporary\ndescription: user's durable workflow\nlicense: MIT\ncompatibility: Codex with Python 3.14+\nmetadata:\n  version: 3.0.0\n---\n# Temporary\n",
+                "---\nname: temporary\ndescription: user's durable workflow\nlicense: MIT\ncompatibility: Codex with Python 3.14+\nmetadata:\n  version: 4.0.0\n---\n# Temporary\n",
                 encoding="utf-8",
             )
             errors: list[str] = []
             VALIDATOR.check_skill(path, "temporary", errors)
             self.assertEqual(errors, [])
             path.write_text(
-                "---\nname: temporary\ndescription: \"unclosed\nmetadata:\n  version: 3.0.0\n---\n# Temporary\n",
+                "---\nname: temporary\ndescription: \"unclosed\nmetadata:\n  version: 4.0.0\n---\n# Temporary\n",
                 encoding="utf-8",
             )
             errors = []
@@ -905,9 +905,9 @@ class ValidatorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=PROJECT) as temporary:
             path = Path(temporary) / "SKILL.md"
             base = ("---\nname: temporary\ndescription: Durable workflow\nlicense: MIT\n"
-                    "compatibility: Codex with Python 3.14+\nmetadata:\n  version: \"3.0.0\"\n---\n# Temporary\n")
+                    "compatibility: Codex with Python 3.14+\nmetadata:\n  version: \"4.0.0\"\n---\n# Temporary\n")
             for text in (base.replace("license: MIT", "license: MIT\nlicense: Apache-2.0"),
-                         base.replace('  version: "3.0.0"', '  version: "3.0.0"\n  version: "3.0.0"'),
+                         base.replace('  version: "4.0.0"', '  version: "4.0.0"\n  version: "4.0.0"'),
                          base.replace("Codex with Python 3.14+", "x" * 501)):
                 with self.subTest(text=text):
                     path.write_text(text, encoding="utf-8")

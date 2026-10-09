@@ -4,7 +4,7 @@ description: 恢复 longtask v3 检查点，或为已有持久架构初始化当
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
-  version: "3.0.0"
+  version: "4.0.0"
 ---
 
 # Longtask 续接

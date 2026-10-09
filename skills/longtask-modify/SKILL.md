@@ -4,7 +4,7 @@ description: 变更已建立 longtask 项目的架构、模块合同或关键技
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
-  version: "3.0.0"
+  version: "4.0.0"
 ---
 
 # Longtask 架构修改

@@ -246,7 +246,7 @@
   ],
   "properties": {
     "schema_version": {"const": 3},
-    "skill_version": {"type": "string", "const": "3.0.0"},
+    "skill_version": {"type": "string", "const": "4.0.0"},
     "task_id": {"description": "Runtime-minted generation identity: optional human prefix plus 32 random hex characters. Clients must use the returned value for CAS; it is not a storage path.", "type": "string", "pattern": "^(?!.*\\.\\.)[a-z0-9][a-z0-9._-]{0,63}$"},
     "mode": {"enum": ["setup", "continue", "review", "modify", "retrofit"]},
     "approval_policy": {"enum": ["interactive", "guarded", "autonomous"]},

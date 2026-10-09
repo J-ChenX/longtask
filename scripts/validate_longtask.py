@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_VERSION = "3.0.0"
+SKILL_VERSION = "4.0.0"
 SKILL_NAMES = (
     "longtask-setup",
     "longtask-continue",
@@ -37,6 +37,7 @@ REQUIRED_FILES = (
     "references/状态协议.md",
     "references/平台适配器.md",
     "references/评测协议.md",
+    "references/新项目设计.md",
     "references/发布与恢复.md",
     "references/personal-marketplace.json",
     "release-manifest.json",
@@ -49,12 +50,15 @@ REQUIRED_FILES = (
     "scripts/acceptance_coverage.py",
     "scripts/discovery_checkpoint.py",
     "scripts/run_memory_evals.py",
+    "scripts/run_setup_evals.py",
     "evals/memory_cases.json",
     "evals/invocation_cases.json",
     "evals/forward_cases.json",
+    "evals/setup_cases.json",
     "tests/test_longtask_state.py",
     "tests/test_release.py",
     "tests/test_forward_workflows.py",
+    "tests/test_setup_evals.py",
     "skills/longtask/SKILL.md",
 )
 SOURCE_EVALUATION_RESULTS = (
@@ -1621,7 +1625,8 @@ def check_repository_content(errors: list[str]) -> None:
 
 
 def check_corpus_contracts(errors: list[str]) -> None:
-    for script, arguments in (("run_skill_evals.py", []), ("run_forward_evals.py", ["--check-cases"])):
+    for script, arguments in (("run_skill_evals.py", []), ("run_forward_evals.py", ["--check-cases"]),
+                              ("run_setup_evals.py", [])):
         try:
             process = subprocess.run([sys.executable, str(ROOT / "scripts" / script), *arguments],
                                      cwd=ROOT, capture_output=True, text=True, check=False,

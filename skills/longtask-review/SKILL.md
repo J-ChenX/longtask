@@ -4,7 +4,7 @@ description: 对 longtask 实现或文档做独立、版本绑定审查；默认
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
-  version: "3.0.0"
+  version: "4.0.0"
 ---
 
 # Longtask 审查

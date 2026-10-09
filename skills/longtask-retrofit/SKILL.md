@@ -4,7 +4,7 @@ description: 接入既无可用 longtask 检查点又无持久架构的已有代
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
-  version: "3.0.0"
+  version: "4.0.0"
 ---
 
 # Longtask 既有项目接入
