@@ -75,8 +75,6 @@ class MemoryEvalTests(unittest.TestCase):
         self.assertTrue(any('reuse' in e for e in errors))
 
 
-if __name__ == '__main__':
-    unittest.main()
 
 class SourceAblationTests(unittest.TestCase):
     def test_b_and_d_remove_interfaces_in_valid_source_and_keep_cas(self):
@@ -372,11 +370,6 @@ class ControlledInputFingerprintTests(unittest.TestCase):
             M.write_json(env2,{'mode':'offline','fixture_version':'fixture-v1'})
             self.assertNotEqual(a['sha256'],M.controlled_fixture_input(second,case,env2)['sha256'])
 
-    def test_historical_stratum_does_not_enter_matched_groups(self):
-        historical={'comparison_stratum':'historical_noncomparable','case_id':'x','arm':'no_skill',
-                    'grade':{'status':'pass'},'stages':[]}
-        self.assertEqual(M.aggregate([historical]),[])
-
 class HistoricalAppendTests(unittest.TestCase):
     def test_historical_sample_is_excluded_and_append_explicitly_rejected(self):
         sample = {'comparison_stratum': 'historical_noncomparable', 'case_id':'x', 'arm':'no_skill',
@@ -459,3 +452,7 @@ class PrivateControlledReconstructionTests(unittest.TestCase):
                     M.refresh(data)
             self.assertEqual(sample['grade'],{'status':'original'})
             self.assertEqual(data['inputs_sha256'],{'original':'untouched'})
+
+
+if __name__ == '__main__':
+    unittest.main()

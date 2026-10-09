@@ -7,8 +7,6 @@ metadata:
   version: 3.0.0
 ---
 
-# Longtask host entry
+# Longtask 入口
 
-This is the Codex plugin discovery entry for the canonical root skill.
-
-Read [`../../SKILL.md`](../../SKILL.md) for routing and shared invariants, reusing it if already loaded and current. Resolve its relative paths from the plugin root. This discovery entry adds no second workflow or state query.
+这是完整插件的发现入口。读取[根技能](../../SKILL.md)选择工作流并遵循共享规则；已加载且仍有效时直接复用。相对路径以插件根为准，不另建工作流或重复查询状态。

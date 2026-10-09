@@ -11,7 +11,8 @@
     },
     {
       "id": "project_content_convergence",
-      "test": "test_finished_work_keeps_project_content_and_discards_execution_records"
+      "test": "test_finish_removes_execution_history_and_next_init_has_no_archive",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "unmerged_or_stale_project_content",
@@ -19,11 +20,13 @@
     },
     {
       "id": "manual_failure_requires_new_acceptance",
-      "test": "test_manual_failure_retry_cannot_reuse_pre_failure_acceptance"
+      "test": "test_manual_failure_requires_new_acceptance_without_invalidating_unrelated_peer",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "single_checkpoint_replacement",
-      "test": "test_replacement_resets_single_checkpoint_without_retaining_history"
+      "test": "test_replace_historical_active_state_binds_current_workspace_without_migration",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "parallel_sequential_delivery_recovery",
@@ -63,27 +66,33 @@
     },
     {
       "id": "stale_documentation",
-      "test": "test_content_change_supersedes_review_and_approval"
+      "test": "test_checkpoint_supersedes_stale_review_and_approval",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "failed_acceptance",
-      "test": "test_later_failed_acceptance_check_blocks_package_completion"
+      "test": "test_latest_package_check_result_controls_completion",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "noncurrent_schema_rejection",
-      "test": "test_noncurrent_state_schema_is_rejected"
+      "test": "test_legacy_schema_is_rejected_without_a_migration_command",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "degraded_host",
-      "test": "test_degraded_host_without_git_hooks_subagents_or_worktrees"
+      "test": "test_missing_git_executable_uses_portable_workspace_fallback",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "contract_change_reopens_package",
-      "test": "test_contract_change_reopens_completed_package"
+      "test": "test_contract_change_reopens_a_completed_package",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "post_completion_failure",
-      "test": "test_post_completion_failure_is_durable"
+      "test": "test_global_failure_after_completion_reopens_review",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "missing_event_history",
@@ -99,23 +108,28 @@
     },
     {
       "id": "immutable_package_base",
-      "test": "test_active_package_keeps_execution_base_and_records_result_evidence"
+      "test": "test_active_package_preserves_execution_base_through_real_content_change",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "review_coverage_gap",
-      "test": "test_review_with_coverage_gap_cannot_be_recorded_as_passing"
+      "test": "test_passing_review_cannot_declare_coverage_gaps",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "review_exit_evidence",
-      "test": "test_review_exit_evidence_is_required_for_completion"
+      "test": "test_review_to_complete_requires_review_phase_evidence",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "event_hardlink_boundary",
-      "test": "test_event_hardlink_cannot_write_outside_workspace"
+      "test": "test_event_log_hardlink_is_rejected_without_modifying_external_inode",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "write_set_scope_drift",
-      "test": "test_out_of_scope_change_blocks_package_until_it_is_superseded"
+      "test": "test_scope_drift_requires_supersession_before_replacement",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "parallel_after_drift",
@@ -131,15 +145,18 @@
     },
     {
       "id": "directory_file_symlink_alias",
-      "test": "test_directory_write_set_rejects_file_symlink_aliases"
+      "test": "test_directory_write_set_rejects_file_symlink_aliases_at_activation",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "directory_external_hardlink",
-      "test": "test_directory_write_set_rejects_external_hardlink_inode"
+      "test": "test_directory_write_set_rejects_hardlink_to_workspace_external_inode",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "directory_symlink_loop",
-      "test": "test_directory_write_set_symlink_loop_returns_structured_rejection"
+      "test": "test_directory_write_set_symlink_loop_fails_with_structured_error",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
       "id": "executable_cli_tutorial",

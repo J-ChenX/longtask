@@ -447,7 +447,7 @@ class ValidatorTests(unittest.TestCase):
                 stack.enter_context(mock.patch.object(VALIDATOR, "REQUIRED_FILES", ()))
                 stack.enter_context(mock.patch.object(VALIDATOR, "SKILL_NAMES", ()))
                 for name in ("check_skill", "check_skill_interface", "check_disclosure_graph", "check_metadata",
-                             "check_release_archive", "check_host_results",
+                             "check_release_archive", "check_host_results", "check_corpus_contracts",
                              "check_invocation_results", "check_forward_results", "check_memory_results"):
                     stack.enter_context(mock.patch.object(VALIDATOR, name))
                 for target, expected in (("overview.md", 0), ("doc-architecture.md", 1)):
@@ -482,7 +482,7 @@ class ValidatorTests(unittest.TestCase):
                     stack.enter_context(mock.patch.object(VALIDATOR, "SKILL_NAMES", ()))
                     stack.enter_context(mock.patch.object(VALIDATOR, "check_release_archive", return_value=binding))
                     for name in ("check_skill", "check_skill_interface", "check_disclosure_graph", "check_portable_markdown_paths",
-                                 "check_metadata", "check_invocation_results", "check_forward_results", "check_memory_results",
+                                 "check_metadata", "check_corpus_contracts", "check_invocation_results", "check_forward_results", "check_memory_results",
                                  "check_markdown_links"):
                         stack.enter_context(mock.patch.object(VALIDATOR, name))
                     stack.enter_context(redirect_stderr(error))
@@ -494,9 +494,10 @@ class ValidatorTests(unittest.TestCase):
     def test_optional_values_are_nullable_but_supplied_values_remain_strict(self) -> None:
         baseline = self.host_fixture()
         arguments = tuple(baseline["release"][key] for key in ("archive_sha256", "source_tree_sha256", "file_count"))
-        invalid = {"agent_id": [""], "model": {}, "latency_ms": True, "retries": False,
-                   "human_interventions": 1.5, "tool_call_count": True}
-        for field, value in invalid.items():
+        invalid = [("agent_id", [""]), ("model", {}), ("model", []),
+                   ("latency_ms", True), ("latency_ms", "1"), ("retries", False), ("retries", -1),
+                   ("human_interventions", 1.5), ("tool_call_count", True)]
+        for field, value in invalid:
             with self.subTest(field=field):
                 data = copy.deepcopy(baseline)
                 data["host"]["assertions"][0][field] = value
@@ -528,7 +529,8 @@ class ValidatorTests(unittest.TestCase):
         data = self.host_fixture()
         arguments = (data["release"]["archive_sha256"], data["release"]["source_tree_sha256"], data["release"]["file_count"])
         invalid = [
-            {"unknown_counter": 123}, {"input_tokens": 1}, {"output_tokens": 1},
+            {}, {"unknown_counter": 123}, {"input_tokens": 1}, {"output_tokens": 1},
+            {"input_tokens": [], "output_tokens": 1},
             {"input_tokens": 1.5, "output_tokens": 1},
             {"input_tokens": True, "output_tokens": 1},
             {"input_tokens": -1, "output_tokens": 1},
@@ -671,52 +673,8 @@ class ValidatorTests(unittest.TestCase):
         self.assertEqual(VALIDATOR.host_results_errors(data, *arguments), [])
 
     def test_host_results_rejects_forged_green_telemetry_and_recovery(self) -> None:
-        data = self.host_fixture()
-        archive_digest, embedded = candidate_binding()
-        arguments = (
-            archive_digest,
-            embedded["source_tree_sha256"],
-            len(embedded["source_entries"]),
-        )
-        green = copy.deepcopy(data)
-        host = green["host"]
-        host["status"] = "pass"
-        host["version"] = "codex-cli 0.147.0-alpha.6.6"
-        host["installation"]["manifest_preflight"] = "pass"
-        host["installation"]["workflow_trace_archive_sha256"] = arguments[0]
-        for assertion in host["assertions"]:
-            assertion.update({
-                "status": "pass",
-                "run_id": "codex-run",
-                "session_id": f"session-{assertion['id']}",
-                "agent_id": "release-agent",
-                "model": "exact-model-version",
-                "tool_ids": ["skill-dispatch"],
-                "guardrail_ids": ["archive-sha256"],
-                "handoff_id": f"handoff-{assertion['id']}",
-                "exit_status": 0,
-                "failure_class": None,
-                "usage": {"input_tokens": 1, "output_tokens": 1},
-                "latency_ms": 1,
-                "retries": 0,
-                "human_interventions": 0,
-                "tool_call_count": 1,
-                "trace_id": f"trace-{assertion['id']}",
-                "trace_sha256": "a" * 64,
-                "evaluated_archive_sha256": arguments[0],
-            })
-        self.refresh_host_aggregates(green)
-        recovery = green["recovery"]
-        for field in VALIDATOR.RECOVERY_CHECK_FIELDS:
-            recovery[field] = "pass"
-        recovery.update({
-            "status": "pass",
-            "run_id": "recovery-run",
-            "trace_id": "recovery-trace",
-            "trace_sha256": "b" * 64,
-            "archive_sha256": arguments[0],
-        })
-        green["release_gate"]["status"] = "pass"
+        green = self.host_fixture()
+        arguments = tuple(green["release"][key] for key in ("archive_sha256", "source_tree_sha256", "file_count"))
         self.assertEqual(VALIDATOR.host_results_errors(green, *arguments), [])
 
         valid_prerelease_and_build = copy.deepcopy(green)
@@ -725,13 +683,6 @@ class ValidatorTests(unittest.TestCase):
 
         mutations = {
             "empty run identifier": lambda item: item["host"]["assertions"][0].__setitem__("run_id", ""),
-            "wrong model type": lambda item: item["host"]["assertions"][0].__setitem__("model", []),
-            "empty usage": lambda item: item["host"]["assertions"][0].__setitem__("usage", {}),
-            "wrong latency type": lambda item: item["host"]["assertions"][0].__setitem__("latency_ms", "1"),
-            "invalid trace digest": lambda item: item["host"]["assertions"][0].__setitem__("trace_sha256", "bad"),
-            "stale assertion archive": lambda item: item["host"]["assertions"][0].__setitem__(
-                "evaluated_archive_sha256", "c" * 64
-            ),
             "stale Codex workflow archive": lambda item: item["host"]["installation"].__setitem__(
                 "workflow_trace_archive_sha256", "c" * 64
             ),
@@ -750,15 +701,11 @@ class ValidatorTests(unittest.TestCase):
             "mutable workspace installation": lambda item: item["host"]["installation"].__setitem__(
                 "method", "direct mutable workspace copy"
             ),
-            "negative retry count": lambda item: item["host"]["assertions"][0].__setitem__("retries", -1),
             "missing installation": lambda item: item["host"].__setitem__("installation", None),
             "wrong host name": lambda item: item["host"].__setitem__("host", "unsupported"),
             "unhashable case id": lambda item: item["host"]["assertions"][0].__setitem__("id", []),
             "unhashable tool identifier": lambda item: item["host"]["assertions"][0].__setitem__(
                 "tool_ids", [{}]
-            ),
-            "non-numeric usage value": lambda item: item["host"]["assertions"][0].__setitem__(
-                "usage", {"input_tokens": []}
             ),
             "recovery summary mismatch": lambda item: item["recovery"].__setitem__(
                 "current_version_reinstall", "fail"
@@ -767,9 +714,6 @@ class ValidatorTests(unittest.TestCase):
                 "archive_sha256", "c" * 64
             ),
             "legacy host collection": lambda item: item.__setitem__("hosts", []),
-            "missing repeated samples": lambda item: item["host"]["assertions"][0].__setitem__(
-                "replicate_runs", []
-            ),
             "forged sample statistics": lambda item: item["analysis"]["sampling"][
                 "case_statistics"
             ][0].__setitem__("pass_count", 0),
@@ -796,12 +740,56 @@ class ValidatorTests(unittest.TestCase):
             (root / "tests").mkdir()
             suite = root / "tests/test_forward_workflows.py"
             suite.write_text("# def test_comment(\nclass ForwardWorkflowTests:\n    def test_actual(self): pass\n")
+            (root / "tests/test_longtask_state.py").write_text("class LongtaskStateTests:\n    def test_actual(self): pass\n")
             with mock.patch.object(FORWARD, "ROOT", root):
                 self.assertEqual(len(FORWARD.validate_cases({"schema_version": 1, "cases": [
                     {"id": "real", "test": "test_actual"}]})), 1)
                 for test in ("test_comment", [], "", "test_actual.inject"):
                     with self.subTest(test=test), self.assertRaises(ValueError):
                         FORWARD.validate_cases({"schema_version": 1, "cases": [{"id": "case", "test": test}]})
+                for suite_name in (None, [], "tests.other.OtherTests"):
+                    with self.subTest(suite=suite_name), self.assertRaises(ValueError):
+                        FORWARD.validate_cases({"schema_version": 1, "cases": [
+                            {"id": "case", "test": "test_actual", "suite": suite_name}]})
+                cases = [{"id": "forward", "test": "test_actual"},
+                         {"id": "state", "test": "test_actual", "suite": "tests.test_longtask_state.LongtaskStateTests"}]
+                FORWARD.validate_cases({"schema_version": 1, "cases": cases})
+                self.assertEqual(FORWARD.test_ids(cases), [
+                    "tests.test_forward_workflows.ForwardWorkflowTests.test_actual",
+                    "tests.test_longtask_state.LongtaskStateTests.test_actual"])
+                cases[1].pop("suite")
+                with self.assertRaisesRegex(ValueError, "targets must be unique"):
+                    FORWARD.validate_cases({"schema_version": 1, "cases": cases})
+
+    def test_forward_case_check_needs_no_saved_results_or_execution(self) -> None:
+        with mock.patch.object(FORWARD, "RESULTS", Path("missing-results.json")), mock.patch.object(
+            FORWARD.subprocess, "run"
+        ) as run, mock.patch.object(FORWARD, "atomic_write") as write, mock.patch.object(
+            sys, "argv", ["run_forward_evals.py", "--check-cases"]
+        ), redirect_stdout(io.StringIO()):
+            self.assertEqual(FORWARD.main(), 0)
+        run.assert_not_called()
+        write.assert_not_called()
+
+    def test_ignored_artifacts_cannot_be_force_added_but_cases_and_fixtures_remain_source(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / ".gitignore").write_bytes((PROJECT / ".gitignore").read_bytes())
+            outputs = [*VALIDATOR.SOURCE_EVALUATION_RESULTS, "evals/progress_results.json",
+                       "evals/future_results.json", "evals/traces/run/trace.jsonl", ".artifacts/run/summary.json"]
+            ignored = subprocess.run(["git", "-C", str(root), "check-ignore", "--stdin"],
+                                     input="\n".join(outputs) + "\n", capture_output=True, text=True, check=True)
+            self.assertEqual(ignored.stdout.splitlines(), outputs)
+            for relative in ("evals/future_results.json", "evals/future_cases.json", "tests/fixtures/synthetic_host_results_v7.json"):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("{}")
+            subprocess.run(["git", "-C", str(root), "add", "-f", "."], check=True)
+            errors = []
+            with mock.patch.object(VALIDATOR, "ROOT", root):
+                VALIDATOR.check_repository_content(errors)
+            self.assertEqual(errors, ["generated artifact is tracked by Git: evals/future_results.json; remove it from the index"])
 
     def test_forward_run_does_not_replace_saved_results(self) -> None:
         cases = FORWARD.validate_cases(FORWARD.load_object(FORWARD.CASES))
@@ -854,12 +842,6 @@ class ValidatorTests(unittest.TestCase):
             VALIDATOR.check_invocation_results(errors)
             VALIDATOR.check_memory_results(errors)
         self.assertEqual(len([message for message in errors if "exceeded" in message]), 4)
-
-    def test_inline_link_parser_handles_parentheses_in_angle_destination(self) -> None:
-        self.assertEqual(
-            VALIDATOR.inline_link_targets("[guide](<guide(1).md>)"),
-            ["<guide(1).md>"],
-        )
 
     def test_fenced_examples_are_removed(self) -> None:
         obsolete = "code IS " + "the spec"

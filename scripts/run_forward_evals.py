@@ -57,9 +57,15 @@ CONTRACT_INPUTS = (
     "references/操作示例.md",
     "scripts/run_forward_evals.py",
     "tests/test_forward_workflows.py",
+    "tests/test_longtask_state.py",
     "evals/forward_cases.json",
 )
 DEFAULT_TIMEOUT_SECONDS = 300.0
+DEFAULT_SUITE = "tests.test_forward_workflows.ForwardWorkflowTests"
+TEST_SUITES = {
+    DEFAULT_SUITE: ("test_forward_workflows.py", "ForwardWorkflowTests"),
+    "tests.test_longtask_state.LongtaskStateTests": ("test_longtask_state.py", "LongtaskStateTests"),
+}
 
 
 def semantic_output_sha256(cases: list[dict[str, Any]]) -> str:
@@ -99,20 +105,28 @@ def validate_cases(data: dict[str, Any]) -> list[dict[str, Any]]:
         values = [item.get(field) for item in cases if isinstance(item, dict)]
         if len(values) != len(cases) or any(not isinstance(value, str) or not value.strip() for value in values):
             raise ValueError(f"forward {field} names must be non-empty strings")
-        if len(set(values)) != len(cases):
+        if field == "id" and len(set(values)) != len(cases):
             raise ValueError(f"forward {field} names must be unique")
-    suite = ast.parse((ROOT / "tests" / "test_forward_workflows.py").read_text(encoding="utf-8"))
-    methods = {method.name for node in suite.body
-               if isinstance(node, ast.ClassDef) and node.name == "ForwardWorkflowTests"
-               for method in node.body if isinstance(method, ast.FunctionDef)}
-    missing = [item["test"] for item in cases if item["test"] not in methods or not item["test"].startswith("test_")]
+    targets = [(item.get("suite", DEFAULT_SUITE), item["test"]) for item in cases]
+    if any(not isinstance(suite, str) or suite not in TEST_SUITES for suite, _ in targets):
+        raise ValueError("forward suite must name an allowlisted test class")
+    if len(set(targets)) != len(targets):
+        raise ValueError("forward test targets must be unique")
+    methods = {}
+    for suite_name in {suite for suite, _ in targets}:
+        filename, class_name = TEST_SUITES[suite_name]
+        tree = ast.parse((ROOT / "tests" / filename).read_text(encoding="utf-8"))
+        methods[suite_name] = {method.name for node in tree.body
+                              if isinstance(node, ast.ClassDef) and node.name == class_name
+                              for method in node.body if isinstance(method, ast.FunctionDef)}
+    missing = [name for suite, name in targets if name not in methods[suite] or not name.startswith("test_")]
     if missing:
         raise ValueError("forward cases reference missing tests: " + ", ".join(missing))
     return cases
 
 
 def test_ids(cases: list[dict[str, Any]]) -> list[str]:
-    return [f"tests.test_forward_workflows.ForwardWorkflowTests.{item['test']}" for item in cases]
+    return [f"{item.get('suite', DEFAULT_SUITE)}.{item['test']}" for item in cases]
 
 
 def validate_unittest_transcript(transcript: str, expected_count: int) -> None:
@@ -173,12 +187,16 @@ def main() -> int:
     execution = parser.add_mutually_exclusive_group()
     execution.add_argument("--write", action="store_true", help="run the suite and replace the saved result")
     execution.add_argument("--run", action="store_true", help="run the suite without changing saved results")
+    execution.add_argument("--check-cases", action="store_true", help="validate case-to-test mappings without saved results or execution")
     parser.add_argument("--timeout-seconds", type=float, default=DEFAULT_TIMEOUT_SECONDS)
     args = parser.parse_args()
     try:
         if not math.isfinite(args.timeout_seconds) or args.timeout_seconds <= 0:
             raise ValueError("timeout-seconds must be a positive finite number")
         cases = validate_cases(load_object(CASES))
+        if args.check_cases:
+            print(json.dumps({"valid": True, "cases": len(cases), "mode": "corpus_contract_only"}))
+            return 0
         if not (args.write or args.run):
             errors = check_saved(load_object(RESULTS), cases)
             print(json.dumps({"valid": not errors, "errors": errors}, ensure_ascii=False, indent=2))

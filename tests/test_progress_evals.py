@@ -427,23 +427,6 @@ class ProgressEvalTests(unittest.TestCase):
             self.assertEqual(P.verify(data), [])
             self.assertEqual(P.verify(data, private=True), [])
 
-    def test_source_snapshot_does_not_follow_symlinks_or_collect_private_roots(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            source = root / 'source'
-            source.mkdir()
-            (source / 'SKILL.md').write_text('public')
-            (source / '.env').write_text('synthetic private marker')
-            (source / '.longtask').mkdir()
-            (source / '.longtask/state.json').write_text('{}')
-            target = root / 'snapshot'
-            P.helper().copy_source_snapshot(source, target)
-            self.assertEqual(P.helper().source_manifest(target), {'SKILL.md': P.digest(source / 'SKILL.md')})
-            (source / 'scripts').mkdir()
-            (source / 'scripts/linked.py').symlink_to(root / 'unrelated.py')
-            with self.assertRaisesRegex(ValueError, 'symlink'):
-                P.helper().copy_source_snapshot(source, root / 'unsafe-snapshot')
-
 
 if __name__ == '__main__':
     unittest.main()

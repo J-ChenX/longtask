@@ -25,13 +25,13 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
-      - name: Verify saved evaluation bindings
+      - name: Validate evaluation corpora
         run: |
-          python3 scripts/run_skill_evals.py --results evals/invocation_results.json
-          python3 scripts/run_forward_evals.py
+          python3 scripts/run_skill_evals.py
+          python3 scripts/run_forward_evals.py --check-cases
       - name: Run unit tests
         run: python3 -m unittest discover -s tests -v
       - name: Execute deterministic forward contracts
-        run: python3 scripts/run_forward_evals.py --write
+        run: python3 scripts/run_forward_evals.py --run
       - name: Validate source and release closure
         run: python3 scripts/validate_longtask.py

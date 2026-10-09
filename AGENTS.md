@@ -34,6 +34,24 @@
 
 每条规则只有一个权威来源；其他文件通过链接引用，而不是重新陈述。
 
+## 源码与产物架构规范
+
+本节是仓库内容边界的唯一权威；其他文档只引用，不复制规则。
+
+| 层级 | 路径与职责 | Git 管理 |
+|---|---|---|
+| 技能交付 | 根及 `skills/*/SKILL.md`、入口元数据、`references/`、运行时工具 | 跟踪；只增加当前技能合同需要且有明确消费者的能力 |
+| 持久知识 | `docs/ARCHITECTURE.md`、模块与决策文档 | 跟踪；维护当前设计与限制，不追加任务过程、轮次日志或完整采样结果 |
+| 开发验证 | `tests/`、`evals/*_cases.json`、评测/校验/构建工具 | 跟踪；案例和合成 fixture 是源码，真实运行结果不是 fixture |
+| 执行产物 | `evals/*_results.json`、`evals/results/`、`evals/runs/`、`evals/traces/`、`evals/snapshots/`、`.artifacts/`、`.longtask/`、`dist/` | 忽略；结果可本地保存，原始 trace 与快照按评测合同受控保留，禁止强制加入 Git |
+
+- 新文件必须说明对应技能需求、消费者和所属模块；不为单次任务增加通用协调器、额外账本或无消费入口的工具。
+- 源码校验、语料检查和确定性测试必须能在不含运行结果的新克隆中执行。运行证据通过显式入口核验，缺失、过期或未知不得解释成行为或发布通过。
+- `.gitignore` 防止新增产物，已跟踪产物须另行解除跟踪；源码校验拒绝被强制加入索引的执行产物。禁止用忽略规则隐藏技能源码、必要测试或协议。
+- 发布闭包由 `release-manifest.json` 单独控制，不能把 Git 忽略当作打包排除。结果、trace、快照、构建和任务状态不得进入安装包；案例与必要自检按发布合同保留。
+- 测试按合同与失败模式选择：保留关键状态转换、CAS、路径/竞态、证据新鲜度、授权与发布边界。已有同层测试完整覆盖相同触发、断言和失败模式时合并或删除重复；过时测试随合同明确替换，不能以删测试掩盖未修复失败。
+- 不为低风险可逆文案改动新增镜像测试；不锁定行数、措辞、函数拆分或内部调用顺序。规模、预算、摘要及实际并发边界属于合同，需保留对应验证。
+
 ## 维护规则
 
 保留用户已有及无关改动，按上表职责定位当前变更所需的权威章节；链接不是全量阅读清单。复用有效资料与验证的条件见[按需消费与验证](references/任务推进.md#按需消费与验证)。代码仅证明已观察行为，意图、授权与证据的边界见[根技能](SKILL.md#事实与授权)。
@@ -62,8 +80,8 @@
 ```text
 python3 scripts/validate_longtask.py
 python3 -m unittest discover -s tests -v
-python3 scripts/run_skill_evals.py --results evals/invocation_results.json
-python3 scripts/run_forward_evals.py
+python3 scripts/run_skill_evals.py
+python3 scripts/run_forward_evals.py --run
 ```
 
 本地测试使用一次性 fixtures，可在已授权范围内运行、修复本次变更造成的失败并重跑，不需逐次批准。通过后不无因重复全套检查；仅文案/格式变更选择相关校验。

@@ -26,8 +26,8 @@ git switch -c codex/your-change
 uv run --python 3.14 python --version
 uv run --python 3.14 python scripts/validate_longtask.py
 uv run --python 3.14 python -m unittest discover -s tests -v
-uv run --python 3.14 python scripts/run_skill_evals.py --results evals/invocation_results.json
-uv run --python 3.14 python scripts/run_forward_evals.py
+uv run --python 3.14 python scripts/run_skill_evals.py
+uv run --python 3.14 python scripts/run_forward_evals.py --run
 ```
 
 这与下面的直接 Python 命令等价。uv 尚未在当前目录激活时，可以通过 `mise exec uv@<已安装版本> -- uv run --python 3.14 python …` 按次调用；无需为此修改全局工具配置。参见 [uv 的解释器选择](https://docs.astral.sh/uv/guides/scripts/#using-different-python-versions)与 [mise exec](https://mise.jdx.dev/cli/exec.html)。
@@ -41,11 +41,13 @@ uv run --python 3.14 python scripts/run_forward_evals.py
 ```bash
 python3 scripts/validate_longtask.py
 python3 -m unittest discover -s tests -v
-python3 scripts/run_skill_evals.py --results evals/invocation_results.json
-python3 scripts/run_forward_evals.py
+python3 scripts/run_skill_evals.py
+python3 scripts/run_forward_evals.py --run
 ```
 
-如果随包文件或合同变化，已保存的摘要可能过期。先实际重跑并更新对应证据，再执行上述检查：
+这些源码检查不依赖运行结果。文件归属、产物忽略及测试取舍按 [AGENTS.md](../AGENTS.md#源码与产物架构规范) 执行。需要核验本地证据时运行 `python3 scripts/validate_longtask.py --with-evaluation-results`，它要求当前调用、前向、记忆及宿主记录，缺失或过期即失败。
+
+如果随包文件或合同变化，已保存的摘要可能过期。需要保存或验证证据时，实际重跑并更新本地记录：
 
 ```bash
 # 执行确定性前向套件并保存本次结果
@@ -59,12 +61,12 @@ python3 scripts/build_release.py verify --root . --archive dist/longtask-3.0.0.z
 
 技能精简需同时核对描述的触发边界、模式资料加载与完整验收。文本体积对照只能支持字符或字节变化的声明；真实工具调用、重复读取、停止行为和成本需从宿主 trace 独立判断，不能用固定措辞检查代替。
 
-CI 校验已保存的绑定并重跑本地合同测试；它不会替你生成独立调用分类、宿主样本或正式发布证据。正式发布另外运行 `python3 scripts/validate_longtask.py --require-release-pass`，发布合同见[发布与恢复](../references/发布与恢复.md)。
+CI 检查语料和源码并执行当前确定性合同测试，不依赖本地结果文件；它不会替你生成独立调用分类、宿主样本或正式发布证据。正式发布另外运行 `python3 scripts/validate_longtask.py --require-release-pass`，发布合同见[发布与恢复](../references/发布与恢复.md)。
 
 ## 提交 Pull Request
 
 保持单个明确目的，说明用户可见的问题、变更后的行为、执行过的验证与剩余限制。重要变更同步架构和受影响模块，并按 [AGENTS.md](../AGENTS.md#仓库变更)进行风险审查；细则引用对应权威文件。
 
-提交说明使用简短的 `docs:`、`fix:`、`feat:`、`test:` 或 `ci:` 前缀即可，无需为文档修改提升技能版本。不要包含 `.longtask/`、`dist/`、个人配置或秘密；保留无关改动。按[行为准则](CODE_OF_CONDUCT.md)参与讨论。
+提交说明使用简短的 `docs:`、`fix:`、`feat:`、`test:` 或 `ci:` 前缀即可，无需为文档修改提升技能版本。不要包含评测结果、trace、快照、`.longtask/`、`dist/`、个人配置或秘密；保留无关改动。按[行为准则](CODE_OF_CONDUCT.md)参与讨论。
 
 贡献将以仓库的 [MIT 许可证](../LICENSE)分发。个人维护项目不承诺固定响应时间。

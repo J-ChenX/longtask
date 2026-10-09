@@ -18,6 +18,7 @@ EVALUATION_RESULTS = (
     "evals/invocation_results.json",
     "evals/forward_results.json",
     "evals/memory_results.json",
+    "evals/progress_results.json",
 )
 SPEC = importlib.util.spec_from_file_location("build_release", ROOT / "scripts" / "build_release.py")
 assert SPEC and SPEC.loader
@@ -26,13 +27,16 @@ SPEC.loader.exec_module(build_release)
 
 
 class ReleaseArchiveTests(unittest.TestCase):
-    def test_clean_extraction_self_check_and_tests_do_not_need_evaluation_results(self) -> None:
+    def test_clean_extraction_checks_source_without_results_but_evidence_modes_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
             archive = base / "release.zip"
             result = build_release.build(ROOT, archive)
             extraction = build_release.extract(archive, base / "install", result["archive_sha256"])
             installed = Path(extraction["destination"])
+            self.assertEqual((installed / "SKILL.md").read_bytes(), (ROOT / "SKILL.md").read_bytes())
+            embedded = json.loads((installed / "RELEASE-MANIFEST.json").read_text())
+            self.assertEqual(embedded["source_tree_sha256"], result["source_tree_sha256"])
             for relative in EVALUATION_RESULTS:
                 self.assertFalse((installed / relative).exists(), relative)
             validator = [sys.executable, str(installed / "scripts/validate_longtask.py")]
@@ -40,14 +44,14 @@ class ReleaseArchiveTests(unittest.TestCase):
                                      text=True, timeout=60, check=False)
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
             self.assertIn("host release gate not evaluated", checked.stdout)
-            tests = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests",
-                                    "-p", "test_validator.py"], cwd=installed, capture_output=True,
-                                   text=True, timeout=60, check=False)
-            self.assertEqual(tests.returncode, 0, tests.stdout + tests.stderr)
+            source = subprocess.run(validator, cwd=installed, capture_output=True,
+                                    text=True, timeout=60, check=False)
+            self.assertEqual(source.returncode, 0, source.stdout + source.stderr)
+            self.assertIn("evaluation results and host release gate not evaluated", source.stdout)
             for relative in EVALUATION_RESULTS:
                 self.assertFalse((installed / relative).exists(),
                                  f"self-check must not synthesize evaluation results: {relative}")
-            for flags in ([], ["--require-release-pass"]):
+            for flags in (["--with-evaluation-results"], ["--require-release-pass"]):
                 rejected = subprocess.run([*validator, *flags], cwd=installed, capture_output=True,
                                           text=True, timeout=60, check=False)
                 self.assertNotEqual(rejected.returncode, 0)
@@ -233,19 +237,6 @@ class ReleaseArchiveTests(unittest.TestCase):
                 plugin = json.loads(archive.read("longtask/.codex-plugin/plugin.json"))
             self.assertEqual(plugin["version"], "3.0.0")
 
-    def test_extract_requires_digest_and_reconstructs_release(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            temporary_path = Path(temporary)
-            archive_path = temporary_path / "release.zip"
-            result = build_release.build(ROOT, archive_path)
-            extraction = build_release.extract(archive_path, temporary_path / "install", result["archive_sha256"])
-            installed = Path(extraction["destination"])
-            self.assertEqual((installed / "SKILL.md").read_bytes(), (ROOT / "SKILL.md").read_bytes())
-            embedded = json.loads((installed / "RELEASE-MANIFEST.json").read_text(encoding="utf-8"))
-            self.assertEqual(embedded["source_tree_sha256"], result["source_tree_sha256"])
-            with self.assertRaises(build_release.ReleaseError):
-                build_release.extract(archive_path, temporary_path / "other", "0" * 64)
-
     def test_detached_verify_and_extract_require_a_valid_trusted_digest(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
@@ -261,6 +252,9 @@ class ReleaseArchiveTests(unittest.TestCase):
                     build_release.ReleaseError, "trusted SHA-256"
                 ):
                     build_release.extract(archive_path, base / f"install-{len(digest)}", digest)
+
+            with self.assertRaises(build_release.ReleaseError):
+                build_release.extract(archive_path, base / "wrong-digest", "0" * 64)
 
     def test_build_rejects_oversized_source_before_reading_it(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

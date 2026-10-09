@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import fnmatch
 import json
 import math
 import re
@@ -49,15 +50,20 @@ REQUIRED_FILES = (
     "scripts/discovery_checkpoint.py",
     "scripts/run_memory_evals.py",
     "evals/memory_cases.json",
-    "evals/memory_results.json",
     "evals/invocation_cases.json",
-    "evals/invocation_results.json",
     "evals/forward_cases.json",
-    "evals/forward_results.json",
     "tests/test_longtask_state.py",
     "tests/test_release.py",
     "tests/test_forward_workflows.py",
     "skills/longtask/SKILL.md",
+)
+SOURCE_EVALUATION_RESULTS = (
+    "evals/host_results.json", "evals/invocation_results.json",
+    "evals/forward_results.json", "evals/memory_results.json",
+)
+GENERATED_PATH_PATTERNS = (
+    "evals/*_results.json", "evals/*.jsonl", "evals/results/*", "evals/runs/*",
+    "evals/traces/*", "evals/snapshots/*", ".artifacts/*", ".longtask/*", "dist/*",
 )
 TEXT_SUFFIXES = {".md", ".json", ".yaml", ".yml", ".py"}
 LINE_ANCHOR = re.compile(r"^L(\d+)(?:-L(\d+))?$")
@@ -887,7 +893,10 @@ def strip_fenced_code(text: str) -> str:
 
 
 def markdown_files(root: Path) -> list[Path]:
-    return sorted(path for path in root.rglob("*.md") if not {".git", ".longtask", "dist"}.intersection(path.relative_to(root).parts))
+    return sorted(path for path in root.rglob("*.md")
+                  if not {".git", ".longtask", "dist"}.intersection(path.relative_to(root).parts)
+                  and not any(fnmatch.fnmatchcase(path.relative_to(root).as_posix(), pattern)
+                              for pattern in GENERATED_PATH_PATTERNS))
 
 
 def check_portable_markdown_paths(root: Path, errors: list[str]) -> None:
@@ -1590,9 +1599,46 @@ def check_metadata(errors: list[str]) -> None:
                 fail(errors, f"state schema weakened blocker digest constraint: {name}")
 
 
+def check_repository_content(errors: list[str]) -> None:
+    """Ignore rules alone cannot stop an already tracked or force-added artifact."""
+    try:
+        top = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--show-toplevel"],
+                             capture_output=True, text=True, timeout=10, check=False)
+        if top.returncode or Path(top.stdout.strip()).resolve() != ROOT.resolve():
+            return  # Extracted artifacts and source snapshots may have no Git repository.
+        tracked = subprocess.run(["git", "-C", str(ROOT), "ls-files", "--cached", "-z"],
+                                 capture_output=True, text=True, timeout=10, check=False)
+        if tracked.returncode:
+            fail(errors, "cannot inspect tracked repository content")
+            return
+        for path in tracked.stdout.split("\0"):
+            if any(fnmatch.fnmatchcase(path, pattern) for pattern in GENERATED_PATH_PATTERNS):
+                fail(errors, f"generated artifact is tracked by Git: {path}; remove it from the index")
+    except FileNotFoundError:
+        return  # Git is not needed for installed artifact self-checks.
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        fail(errors, f"cannot inspect repository content: {exc}")
+
+
+def check_corpus_contracts(errors: list[str]) -> None:
+    for script, arguments in (("run_skill_evals.py", []), ("run_forward_evals.py", ["--check-cases"])):
+        try:
+            process = subprocess.run([sys.executable, str(ROOT / "scripts" / script), *arguments],
+                                     cwd=ROOT, capture_output=True, text=True, check=False,
+                                     timeout=SUBPROCESS_TIMEOUT_SECONDS)
+            if process.returncode:
+                fail(errors, f"{script} corpus check failed: " + (process.stderr or process.stdout).strip())
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            fail(errors, f"{script} corpus check unavailable: {exc}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--with-evaluation-results", action="store_true",
+        help="also verify local host, invocation, forward and memory evidence; missing or stale results fail",
+    )
     mode.add_argument(
         "--installed", action="store_true",
         help="self-check an extracted artifact without asserting the source-only host release gate",
@@ -1604,8 +1650,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     errors: list[str] = []
 
-    external_results = {"evals/host_results.json", "evals/invocation_results.json", "evals/forward_results.json", "evals/memory_results.json"}
-    required_files = tuple(path for path in REQUIRED_FILES if not args.installed or path not in external_results) + (() if args.installed else ("evals/host_results.json",))
+    verify_results = args.with_evaluation_results or args.require_release_pass
+    required_files = REQUIRED_FILES + (SOURCE_EVALUATION_RESULTS if verify_results else ())
     for relative in required_files:
         if not (ROOT / relative).is_file():
             fail(errors, f"missing required file: {relative}")
@@ -1635,6 +1681,8 @@ def main(argv: list[str] | None = None) -> int:
     for path in ROOT.rglob("*"):
         if {".git", ".longtask", "dist"}.intersection(path.relative_to(ROOT).parts) or not path.is_file():
             continue
+        if any(fnmatch.fnmatchcase(path.relative_to(ROOT).as_posix(), pattern) for pattern in GENERATED_PATH_PATTERNS):
+            continue
         if path.suffix.lower() not in TEXT_SUFFIXES:
             continue
         if path.resolve() == Path(__file__).resolve():
@@ -1659,8 +1707,11 @@ def main(argv: list[str] | None = None) -> int:
             fail(errors, f"invalid Python syntax in {script.relative_to(ROOT)}: {exc}")
 
     check_metadata(errors)
-    binding = check_release_archive(errors, installed=args.installed)
     if not args.installed:
+        check_repository_content(errors)
+    check_corpus_contracts(errors)
+    binding = check_release_archive(errors, installed=args.installed)
+    if verify_results:
         check_host_results(errors, binding)
     if args.require_release_pass:
         if not (ROOT / "dist" / f"longtask-{SKILL_VERSION}.zip").is_file():
@@ -1678,7 +1729,7 @@ def main(argv: list[str] | None = None) -> int:
             fail(errors, f"release readiness gate is not pass: {release_status!r}")
             for reason in release_blockers(host_results):
                 fail(errors, reason)
-    if not args.installed:
+    if verify_results:
         check_invocation_results(errors)
         check_forward_results(errors)
         check_memory_results(errors)
@@ -1689,7 +1740,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
     print("longtask installed artifact self-check passed; host release gate not evaluated"
-          if args.installed else "longtask static validation passed")
+          if args.installed else "longtask release readiness validation passed"
+          if args.require_release_pass else "longtask static validation and local evaluation bindings passed; release pass not asserted"
+          if verify_results else "longtask static validation passed; evaluation results and host release gate not evaluated")
     return 0
 
 

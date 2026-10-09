@@ -29,16 +29,26 @@
     "evals/forward_results.json",
     "evals/memory_results.json",
     "docs/tasks",
-    "evals/progress_results.json"
+    "evals/progress_results.json",
+    "evals/results",
+    "evals/runs",
+    "evals/traces",
+    "evals/snapshots"
   ],
   "exclude_names": [
     ".DS_Store",
     "__pycache__",
     ".longtask",
-    "dist"
+    "dist",
+    ".artifacts",
+    ".pytest_cache",
+    ".venv",
+    "htmlcov"
   ],
   "exclude_suffixes": [
     ".pyc",
-    ".pyo"
+    ".pyo",
+    "_results.json",
+    ".jsonl"
   ]
 }

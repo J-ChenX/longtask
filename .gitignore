@@ -23,3 +23,20 @@ $RECYCLE.BIN/
 # Transient resume checkpoint and reproducible release output
 .longtask/
 dist/
+
+# Generated evaluation evidence; cases and synthetic test fixtures remain source.
+/evals/*_results.json
+/evals/results/
+/evals/runs/
+/evals/traces/
+/evals/snapshots/
+/evals/*.jsonl
+/.artifacts/
+
+# Local test, coverage and environment output.
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.venv/

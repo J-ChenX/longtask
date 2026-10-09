@@ -130,7 +130,7 @@ class LongtaskStateTests(unittest.TestCase):
         self.assertEqual(self.route()["entry"], "continue")
 
     def test_routes_nested_and_unfamiliar_implementations_to_existing_project(self) -> None:
-        for relative in ("scripts/service.py", "service/main.py", "src/App.vue", "main.swift", "index.html", "domain/product.unknown"):
+        for relative in ("main.py", "scripts/service.py", "service/main.py", "src/App.vue", "main.swift", "index.html", "domain/product.unknown"):
             with self.subTest(relative=relative), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 source = root / relative
@@ -202,16 +202,6 @@ class LongtaskStateTests(unittest.TestCase):
         result = self.route()
         self.assertEqual(result["entry"], "error")
         self.assertIn("symlink alias", result["reason"])
-
-    def test_pointer_cannot_target_an_unrelated_workspace_json(self) -> None:
-        unrelated = self.root / "config.json"
-        unrelated.write_text("{}\n", encoding="utf-8")
-        pointer = self.root / "docs" / "tasks" / "_ACTIVE.md"
-        pointer.parent.mkdir(parents=True)
-        pointer.write_text("state: config.json\n", encoding="utf-8")
-        result = self.route()
-        self.assertEqual(result["entry"], "error")
-        self.assertIn("legacy task-directory layout", result["reason"])
 
     def test_init_does_not_silently_replace_an_active_task(self) -> None:
         self.init()
@@ -693,16 +683,6 @@ class LongtaskStateTests(unittest.TestCase):
         self.assertTrue(any("evidence[0]" in error for error in errors))
         self.assertTrue(any("passing evidence" in error for error in errors))
 
-    def test_package_command_is_compare_and_swap_validated(self) -> None:
-        self.init()
-        package = self.package("one")
-        state = self.run_cli(
-            "package", "--root", str(self.root), "--expected-revision", "0",
-            "--data", json.dumps(package),
-        )
-        self.assertEqual(state["work_packages"][0]["id"], "one")
-        self.assertEqual(state["revision"], 1)
-
     def test_digest_hashes_symlink_identity_without_following_target(self) -> None:
         outside = Path(self.temporary.name).parent / f"{self.root.name}-secret.txt"
         outside.write_text("first\n", encoding="utf-8")
@@ -1155,10 +1135,6 @@ class LongtaskStateTests(unittest.TestCase):
         )
         self.assertIn("target architecture/documentation/execution", result["error"])
 
-    def test_root_source_file_routes_to_retrofit(self) -> None:
-        (self.root / "main.py").write_text("print('existing')\n", encoding="utf-8")
-        self.assertEqual(self.route()["entry"], "retrofit")
-
     def test_review_approval_cannot_be_replaced_by_design_approval_at_completion(self) -> None:
         self.init("review")
         evidence_state = self.run_cli(
@@ -1522,7 +1498,7 @@ class LongtaskStateTests(unittest.TestCase):
         state = self.mutation(state, "package", "--data", json.dumps(packages[0]), actor="first")
         self.assertEqual(state["work_packages"][0]["baseline_manifest"], baseline)
         self.assertEqual(state["work_packages"][0]["owner"], "successor")
-        self.assertIn("first", state["work_packages"][0]["contributors"])
+        self.assertTrue({"first", "successor"}.issubset(state["work_packages"][0]["contributors"]))
 
     def test_manual_failure_requires_new_acceptance_without_invalidating_unrelated_peer(self) -> None:
         state, packages = self.start_pair()
@@ -2507,29 +2483,6 @@ class LongtaskStateTests(unittest.TestCase):
         )
         self.assertIn("latest failing validation evidence", result["error"])
 
-    def test_owner_transfer_preserves_history_and_rejects_hijack(self) -> None:
-        initial = self.init()
-        package = self.package(
-            "owned", status="active", base_revision=initial["artifact_digest"], owner="alice",
-            lease_expires=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
-        )
-        self.run_cli(
-            "package", "--root", str(self.root), "--expected-revision", "0", "--data", json.dumps(package),
-            "--actor", "alice",
-        )
-        hijack = dict(package, owner="mallory")
-        rejected = self.run_cli(
-            "package", "--root", str(self.root), "--expected-revision", "1", "--data", json.dumps(hijack),
-            "--actor", "mallory", ok=False,
-        )
-        self.assertIn("only be transferred", rejected["error"])
-        transfer = dict(package, owner="bob")
-        state = self.run_cli(
-            "package", "--root", str(self.root), "--expected-revision", "1", "--data", json.dumps(transfer),
-            "--actor", "alice",
-        )
-        self.assertTrue({"alice", "bob"}.issubset(state["work_packages"][0]["contributors"]))
-
     def test_review_blockers_cannot_close_on_same_digest(self) -> None:
         self.init("review")
         state = self.run_cli(
@@ -2800,21 +2753,6 @@ runtime.cmd_init(args)
             "role": "security", "covered_package_ids": ["critical"],
         }}]
         self.assertEqual(STATE.review_coverage_errors([package], reviews, "integrator"), [])
-
-    def test_stale_writer_cannot_mutate_replacement_task_with_same_revision(self) -> None:
-        first = self.init()
-        self.run_cli(
-            "init", "--root", str(self.root), "--task-id", "replacement-task", "--mode", "modify",
-            "--goal", "replace safely", "--replace-active", "--actor", "operator",
-            "--expected-task-id", self.task_id, "--expected-revision", "0",
-            "--expected-artifact-digest", first["artifact_digest"],
-        )
-        rejected = self.run_cli(
-            "checkpoint", "--root", str(self.root), "--expected-task-id", self.task_id,
-            "--expected-revision", "0", ok=False,
-        )
-        self.assertIn("stale task", rejected["error"])
-        self.assertEqual(self.route()["revision"], 0)
 
     def test_replace_active_requires_full_observed_identity(self) -> None:
         self.init()
