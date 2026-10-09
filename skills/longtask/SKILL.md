@@ -4,7 +4,7 @@ description: 编排需跨上下文恢复或协调独立验收包的编码任务�
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
-  version: 4.0.0
+  version: 4.1.0
 ---
 
 # Longtask 入口

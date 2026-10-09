@@ -12,22 +12,18 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CORPUS = ROOT / "evals" / "invocation_cases.json"
-ENTRIES = {"setup", "retrofit", "continue", "modify", "review"}
+ENTRIES = {"setup", "retrofit", "continue", "modify", "review"}  # Internal modes, not discovered skills.
+PUBLIC_SKILL = "longtask"
 DISCOVERY_FILES = (
     "SKILL.md",
     "skills/longtask/agents/openai.yaml",
-    "skills/longtask-setup/agents/openai.yaml",
-    "skills/longtask-continue/agents/openai.yaml",
-    "skills/longtask-review/agents/openai.yaml",
-    "skills/longtask-modify/agents/openai.yaml",
-    "skills/longtask-retrofit/agents/openai.yaml",
     ".codex-plugin/plugin.json",
     "skills/longtask/SKILL.md",
-    "skills/longtask-setup/SKILL.md",
-    "skills/longtask-continue/SKILL.md",
-    "skills/longtask-review/SKILL.md",
-    "skills/longtask-modify/SKILL.md",
-    "skills/longtask-retrofit/SKILL.md",
+    "references/新建项目.md",
+    "references/任务续接.md",
+    "references/任务审查.md",
+    "references/架构变更.md",
+    "references/既有项目接入.md",
 )
 
 
@@ -60,8 +56,8 @@ def aggregate_sha256(paths: tuple[str, ...]) -> str:
 
 def validate_result_manifest(results: dict[str, Any], corpus: Path) -> list[str]:
     errors: list[str] = []
-    if results.get("schema_version") != 3:
-        errors.append("results schema_version must be 3")
+    if results.get("schema_version") != 4:
+        errors.append("results schema_version must be 4")
     evaluation = results.get("evaluation")
     if not isinstance(evaluation, dict):
         return errors + ["results must contain an evaluation object"]
@@ -140,8 +136,8 @@ def validate_result_manifest(results: dict[str, Any], corpus: Path) -> list[str]
 def validate_corpus(data: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
     errors: list[str] = []
     cases = data.get("cases")
-    if data.get("schema_version") != 1:
-        errors.append("schema_version must be 1")
+    if data.get("schema_version") != 2:
+        errors.append("schema_version must be 2")
     if not isinstance(cases, list) or not cases:
         return [], errors + ["cases must be a non-empty array"]
     ids: set[str] = set()
@@ -152,7 +148,7 @@ def validate_corpus(data: dict[str, Any]) -> tuple[list[dict[str, Any]], list[st
         if not isinstance(case, dict):
             errors.append(f"cases[{index}] must be an object")
             continue
-        missing = {"id", "prompt", "should_trigger", "expected_entry", "rationale"} - case.keys()
+        missing = {"id", "prompt", "should_trigger", "expected_skill", "expected_entry", "rationale"} - case.keys()
         if missing:
             errors.append(f"cases[{index}] missing {', '.join(sorted(missing))}")
             continue
@@ -171,12 +167,16 @@ def validate_corpus(data: dict[str, Any]) -> tuple[list[dict[str, Any]], list[st
             errors.append(f"{case_id}: should_trigger must be boolean")
         elif case["should_trigger"]:
             positive += 1
+            if case["expected_skill"] != PUBLIC_SKILL:
+                errors.append(f"{case_id}: triggered case needs expected_skill={PUBLIC_SKILL}")
             if not isinstance(case["expected_entry"], str) or case["expected_entry"] not in ENTRIES:
                 errors.append(f"{case_id}: triggered case needs a valid expected_entry")
             else:
                 entries.add(case["expected_entry"])
         else:
             negative += 1
+            if case["expected_skill"] is not None:
+                errors.append(f"{case_id}: non-trigger case must have expected_skill=null")
             if case["expected_entry"] is not None:
                 errors.append(f"{case_id}: non-trigger case must have expected_entry=null")
     if positive != negative:
@@ -212,6 +212,9 @@ def score_classifications(cases: list[dict[str, Any]], results: dict[str, Any]) 
         selected = result.get("selected")
         if not isinstance(selected, bool):
             errors.append(f"{case['id']}: selected must be boolean")
+            continue
+        if "skill" not in result or result["skill"] != (PUBLIC_SKILL if selected else None):
+            errors.append(f"{case['id']}: skill must be {PUBLIC_SKILL} when selected and null otherwise")
             continue
         entry = result.get("entry")
         if entry is not None and (not isinstance(entry, str) or entry not in ENTRIES):

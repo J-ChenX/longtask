@@ -446,7 +446,7 @@ class ValidatorTests(unittest.TestCase):
                 stack.enter_context(mock.patch.object(VALIDATOR, "ROOT", root))
                 stack.enter_context(mock.patch.object(VALIDATOR, "REQUIRED_FILES", ()))
                 stack.enter_context(mock.patch.object(VALIDATOR, "SKILL_NAMES", ()))
-                for name in ("check_skill", "check_skill_interface", "check_disclosure_graph", "check_metadata",
+                for name in ("check_skill", "check_skill_interface", "check_discovery_surface", "check_disclosure_graph", "check_metadata",
                              "check_release_archive", "check_host_results", "check_corpus_contracts",
                              "check_invocation_results", "check_forward_results", "check_memory_results"):
                     stack.enter_context(mock.patch.object(VALIDATOR, name))
@@ -461,6 +461,28 @@ class ValidatorTests(unittest.TestCase):
                             self.assertIn("dead local link", errors.getvalue())
                         else:
                             self.assertEqual(errors.getvalue(), "")
+
+    def test_discovery_rejects_extra_skills_and_orphan_interfaces(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            skill = root / "skills/longtask"
+            (skill / "agents").mkdir(parents=True)
+            (skill / "SKILL.md").write_text("# Entry\n")
+            (skill / "agents/openai.yaml").write_text("interface:\n")
+            with mock.patch.object(VALIDATOR, "ROOT", root):
+                errors = []
+                VALIDATOR.check_discovery_surface(errors)
+                self.assertEqual(errors, [])
+                for relative in ("longtask-review/SKILL.md", "longtask/assets/extra/SKILL.md",
+                                 "orphan/agents/openai.yaml"):
+                    with self.subTest(relative=relative):
+                        extra = root / "skills" / relative
+                        extra.parent.mkdir(parents=True, exist_ok=True)
+                        extra.write_text("unexpected discovered resource\n")
+                        errors = []
+                        VALIDATOR.check_discovery_surface(errors)
+                        self.assertTrue(errors)
+                        extra.unlink()
 
     def test_release_cli_rejects_malformed_gate_with_errors_instead_of_traceback(self) -> None:
         baseline = self.host_fixture()
@@ -481,7 +503,7 @@ class ValidatorTests(unittest.TestCase):
                     stack.enter_context(mock.patch.object(VALIDATOR, "REQUIRED_FILES", ()))
                     stack.enter_context(mock.patch.object(VALIDATOR, "SKILL_NAMES", ()))
                     stack.enter_context(mock.patch.object(VALIDATOR, "check_release_archive", return_value=binding))
-                    for name in ("check_skill", "check_skill_interface", "check_disclosure_graph", "check_portable_markdown_paths",
+                    for name in ("check_skill", "check_skill_interface", "check_discovery_surface", "check_disclosure_graph", "check_portable_markdown_paths",
                                  "check_metadata", "check_corpus_contracts", "check_invocation_results", "check_forward_results", "check_memory_results",
                                  "check_markdown_links"):
                         stack.enter_context(mock.patch.object(VALIDATOR, name))
@@ -813,7 +835,7 @@ class ValidatorTests(unittest.TestCase):
             root = Path(temporary)
             (root / "scripts").mkdir()
             (root / "scripts/build_release.py").write_text("# fixture\n")
-            (root / "release-manifest.json").write_text(json.dumps({"package": "longtask", "version": "4.0.0"}))
+            (root / "release-manifest.json").write_text(json.dumps({"package": "longtask", "version": "4.1.0"}))
             (root / "evals").mkdir()
             data = self.host_fixture()
             (root / "evals/host_results.json").write_text(json.dumps(data))
@@ -887,14 +909,14 @@ class ValidatorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=PROJECT) as temporary:
             path = Path(temporary) / "SKILL.md"
             path.write_text(
-                "---\nname: temporary\ndescription: user's durable workflow\nlicense: MIT\ncompatibility: Codex with Python 3.14+\nmetadata:\n  version: 4.0.0\n---\n# Temporary\n",
+                "---\nname: temporary\ndescription: user's durable workflow\nlicense: MIT\ncompatibility: Codex with Python 3.14+\nmetadata:\n  version: 4.1.0\n---\n# Temporary\n",
                 encoding="utf-8",
             )
             errors: list[str] = []
             VALIDATOR.check_skill(path, "temporary", errors)
             self.assertEqual(errors, [])
             path.write_text(
-                "---\nname: temporary\ndescription: \"unclosed\nmetadata:\n  version: 4.0.0\n---\n# Temporary\n",
+                "---\nname: temporary\ndescription: \"unclosed\nmetadata:\n  version: 4.1.0\n---\n# Temporary\n",
                 encoding="utf-8",
             )
             errors = []
@@ -905,9 +927,9 @@ class ValidatorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=PROJECT) as temporary:
             path = Path(temporary) / "SKILL.md"
             base = ("---\nname: temporary\ndescription: Durable workflow\nlicense: MIT\n"
-                    "compatibility: Codex with Python 3.14+\nmetadata:\n  version: \"4.0.0\"\n---\n# Temporary\n")
+                    "compatibility: Codex with Python 3.14+\nmetadata:\n  version: \"4.1.0\"\n---\n# Temporary\n")
             for text in (base.replace("license: MIT", "license: MIT\nlicense: Apache-2.0"),
-                         base.replace('  version: "4.0.0"', '  version: "4.0.0"\n  version: "4.0.0"'),
+                         base.replace('  version: "4.1.0"', '  version: "4.1.0"\n  version: "4.1.0"'),
                          base.replace("Codex with Python 3.14+", "x" * 501)):
                 with self.subTest(text=text):
                     path.write_text(text, encoding="utf-8")

@@ -9,11 +9,11 @@
     "recovery": "current-version-reinstall"
   },
   "release": {
-    "archive": "dist/longtask-4.0.0.zip",
+    "archive": "dist/longtask-4.1.0.zip",
     "archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
     "source_tree_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
     "file_count": 1,
-    "version": "4.0.0"
+    "version": "4.1.0"
   },
   "release_gate": {
     "status": "blocked",
@@ -26,7 +26,7 @@
     "installation": {
       "method": "trusted archive extraction",
       "plugin_id": "longtask",
-      "installed_version": "4.0.0",
+      "installed_version": "4.1.0",
       "manifest_preflight": "unable_to_verify",
       "validated_archive_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "workflow_trace_archive_sha256": null

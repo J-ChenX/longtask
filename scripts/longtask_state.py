@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = 3
-SKILL_VERSION = "4.0.0"
+SKILL_VERSION = "4.1.0"
 TASK_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 ACTOR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")

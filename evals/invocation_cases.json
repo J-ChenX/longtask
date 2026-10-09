@@ -1,425 +1,565 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "cases": [
     {
       "id": "new_multi_session_product",
       "prompt": "Build a new offline-first field-service app. This will span several sessions; preserve architecture decisions and handoffs.",
       "should_trigger": true,
       "expected_entry": "setup",
-      "rationale": "A new multi-session product needs durable orchestration."
+      "rationale": "A new multi-session product needs durable orchestration.",
+      "expected_skill": "longtask"
     },
     {
       "id": "existing_code_no_docs",
       "prompt": "Use longtask to take over this existing service. It has source code but no architecture or task state; recover what it does before changing it.",
       "should_trigger": true,
       "expected_entry": "retrofit",
-      "rationale": "Existing implementation without durable state requires retrofit."
+      "rationale": "Existing implementation without durable state requires retrofit.",
+      "expected_skill": "longtask"
     },
     {
       "id": "resume_after_compaction",
       "prompt": "Continue the active longtask after context compaction. Validate the checkpoint and resume the recorded next action.",
       "should_trigger": true,
       "expected_entry": "continue",
-      "rationale": "Explicit recovery from durable state is the continue path."
+      "rationale": "Explicit recovery from durable state is the continue path.",
+      "expected_skill": "longtask"
     },
     {
       "id": "architecture_migration",
       "prompt": "In this active longtask, change the documented system from a single database to tenant-sharded storage, including migration and rollback, without losing the current work packages.",
       "should_trigger": true,
       "expected_entry": "modify",
-      "rationale": "A persistence and module-graph change is L4."
+      "rationale": "A persistence and module-graph change is L4.",
+      "expected_skill": "longtask"
     },
     {
       "id": "independent_final_review",
       "prompt": "The implementation is finished. Run the longtask independent multi-risk review and verify that the recorded evidence still matches the workspace.",
       "should_trigger": true,
       "expected_entry": "review",
-      "rationale": "Explicit evidence-bound longtask review selects review."
+      "rationale": "Explicit evidence-bound longtask review selects review.",
+      "expected_skill": "longtask"
     },
     {
       "id": "complex_existing_program",
       "prompt": "This repository already contains a working compiler prototype. Establish durable architecture and a safe plan for a month of agent work.",
       "should_trigger": true,
       "expected_entry": "retrofit",
-      "rationale": "Long-running work starts from existing code whose intent must be recovered."
+      "rationale": "Long-running work starts from existing code whose intent must be recovered.",
+      "expected_skill": "longtask"
     },
     {
       "id": "cross_session_security_rework",
       "prompt": "Modify the active longtask architecture across several independent work packages and context windows to redesign authentication, migrate sessions, and retain auditable approvals.",
       "should_trigger": true,
       "expected_entry": "modify",
-      "rationale": "Explicit cross-session architecture work with trust-boundary changes needs longtask."
+      "rationale": "Explicit cross-session architecture work with trust-boundary changes needs longtask.",
+      "expected_skill": "longtask"
     },
     {
       "id": "explicit_small_longtask",
       "prompt": "Use the longtask skill even though this is a tiny empty demo; initialize it so I can test the workflow.",
       "should_trigger": true,
       "expected_entry": "setup",
-      "rationale": "Explicit skill invocation overrides the normal size boundary."
+      "rationale": "Explicit skill invocation overrides the normal size boundary.",
+      "expected_skill": "longtask"
     },
     {
       "id": "documented_without_v3_state",
       "prompt": "This substantial project already has longtask architecture documents but no current v3 active-state pointer. Preserve old material read-only, initialize a new current state, and continue the approved goal.",
       "should_trigger": true,
       "expected_entry": "continue",
-      "rationale": "Durable architecture exists and needs a fresh current v3 state before resumption; old state is not migrated."
+      "rationale": "Durable architecture exists and needs a fresh current v3 state before resumption; old state is not migrated.",
+      "expected_skill": "longtask"
     },
     {
       "id": "explicit_small_existing_longtask",
       "prompt": "Use longtask on this tiny existing Python service. It has code but no project architecture; initialize durable state before we extend it later.",
       "should_trigger": true,
       "expected_entry": "retrofit",
-      "rationale": "Explicit invocation plus existing undocumented code selects retrofit."
+      "rationale": "Explicit invocation plus existing undocumented code selects retrofit.",
+      "expected_skill": "longtask"
     },
     {
       "id": "review_across_handoff",
       "prompt": "Review the completed authorization rewrite across security, operations, and contract risks. The review will hand off to another agent tomorrow and must retain revision-bound evidence.",
       "should_trigger": true,
       "expected_entry": "review",
-      "rationale": "A multi-risk review spanning a handoff needs durable review state."
+      "rationale": "A multi-risk review spanning a handoff needs durable review state.",
+      "expected_skill": "longtask"
     },
     {
       "id": "interrupted_non_longtask_codebase",
       "prompt": "Take over this interrupted month-long implementation. Source exists, but the prior chat was lost and there are no durable architecture or task documents.",
       "should_trigger": true,
       "expected_entry": "retrofit",
-      "rationale": "Existing code with lost intent and no longtask records requires retrofit."
+      "rationale": "Existing code with lost intent and no longtask records requires retrofit.",
+      "expected_skill": "longtask"
     },
     {
       "id": "implicit_large_greenfield",
       "prompt": "Build a new multi-tenant analytics platform with ingestion, billing, permissions, deployment, and separate testable milestones; keep it recoverable across handoffs.",
       "should_trigger": true,
       "expected_entry": "setup",
-      "rationale": "A clearly substantial greenfield build needs setup even without naming the skill."
+      "rationale": "A clearly substantial greenfield build needs setup even without naming the skill.",
+      "expected_skill": "longtask"
     },
     {
       "id": "active_workflow_redesign",
       "prompt": "Our active longtask must replace its release workflow and task-state persistence model while preserving rollback and current package evidence.",
       "should_trigger": true,
       "expected_entry": "modify",
-      "rationale": "Changing workflow and persistence in an active longtask is modify."
+      "rationale": "Changing workflow and persistence in an active longtask is modify.",
+      "expected_skill": "longtask"
     },
     {
       "id": "single_typo",
       "prompt": "Fix the typo in the README heading and verify the diff.",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "A tiny bounded edit does not need durable orchestration."
+      "rationale": "A tiny bounded edit does not need durable orchestration.",
+      "expected_skill": null
     },
     {
       "id": "explain_function",
       "prompt": "Explain what parse_config() does; do not change anything.",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "A local explanation fits one context."
+      "rationale": "A local explanation fits one context.",
+      "expected_skill": null
     },
     {
       "id": "small_patch_review",
       "prompt": "Review this 20-line patch for an off-by-one bug and report findings only.",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "A small review does not need the longtask state system."
+      "rationale": "A small review does not need the longtask state system.",
+      "expected_skill": null
     },
     {
       "id": "one_unit_test",
       "prompt": "Add one unit test for the existing date parser.",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "A single bounded implementation task should use the normal workflow."
+      "rationale": "A single bounded implementation task should use the normal workflow.",
+      "expected_skill": null
     },
     {
       "id": "summarize_log",
       "prompt": "Summarize the last 50 lines of this build log.",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "Summarization does not need coding-task persistence."
+      "rationale": "Summarization does not need coding-task persistence.",
+      "expected_skill": null
     },
     {
       "id": "git_status",
       "prompt": "Tell me which files are modified in this repository.",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "A read-only status check is short and deterministic."
+      "rationale": "A read-only status check is short and deterministic.",
+      "expected_skill": null
     },
     {
       "id": "small_refactor",
       "prompt": "Rename this private variable and run the focused test.",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "A safe local refactor does not cross sessions or domains."
+      "rationale": "A safe local refactor does not cross sessions or domains.",
+      "expected_skill": null
     },
     {
       "id": "general_advice",
       "prompt": "What are the pros and cons of monorepos?",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "General advice is not an active long-running coding task."
+      "rationale": "General advice is not an active long-running coding task.",
+      "expected_skill": null
     },
     {
       "id": "parallel_single_session_inspection",
       "prompt": "Have two agents independently inspect this one stack trace, compare their diagnoses, and answer in this session.",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "Parallel read-only analysis alone does not require cross-session orchestration."
+      "rationale": "Parallel read-only analysis alone does not require cross-session orchestration.",
+      "expected_skill": null
     },
     {
       "id": "planning_only",
       "prompt": "Sketch possible approaches for a database migration, but do not edit the repository or create a durable implementation plan.",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "One-session advisory brainstorming is not an active longtask."
+      "rationale": "One-session advisory brainstorming is not an active longtask.",
+      "expected_skill": null
     },
     {
       "id": "large_repo_local_fix",
       "prompt": "This repository is huge, but only fix the misspelled error message in one known file and run its focused test.",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "Repository size does not make a bounded fix a longtask."
+      "rationale": "Repository size does not make a bounded fix a longtask.",
+      "expected_skill": null
     },
     {
       "id": "resume_small_chat_task",
       "prompt": "Continue the previous chat's two-line CSS alignment fix; no project state or handoff is needed.",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "Conversational continuation of a tiny task is not durable recovery."
+      "rationale": "Conversational continuation of a tiny task is not durable recovery.",
+      "expected_skill": null
     },
     {
       "id": "single_session_endpoint",
       "prompt": "Add one endpoint and its focused tests. Keep the change self-contained and finish it in this session.",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "Multiple files do not imply a multi-session task."
+      "rationale": "Multiple files do not imply a multi-session task.",
+      "expected_skill": null
     },
     {
       "id": "bounded_module_review",
       "prompt": "Review one self-contained authentication module now and report findings only; no persistent workflow artifacts are wanted.",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "A bounded read-only review that fits one session stays outside longtask."
+      "rationale": "A bounded read-only review that fits one session stays outside longtask.",
+      "expected_skill": null
     },
     {
       "id": "zh_new_cross_session_project",
       "prompt": "从零搭建一个多租户客服平台，包含权限、计费、部署和分阶段验收，这项工作会跨多个会话并需要可靠交接。",
       "should_trigger": true,
       "expected_entry": "setup",
-      "rationale": "跨会话的复杂新项目需要初始化持久编排。"
+      "rationale": "跨会话的复杂新项目需要初始化持久编排。",
+      "expected_skill": "longtask"
     },
     {
       "id": "zh_existing_without_architecture",
       "prompt": "接手这个已有代码库。之前的对话已经丢失，也没有架构或任务状态，请先恢复当前行为和意图，再规划后续数周工作。",
       "should_trigger": true,
       "expected_entry": "retrofit",
-      "rationale": "已有实现但没有持久架构或状态，需要先接入。"
+      "rationale": "已有实现但没有持久架构或状态，需要先接入。",
+      "expected_skill": "longtask"
     },
     {
       "id": "zh_resume_checkpoint",
       "prompt": "继续当前 longtask。上下文刚刚被压缩，请校验检查点和产物版本，然后恢复状态中记录的下一步。",
       "should_trigger": true,
       "expected_entry": "continue",
-      "rationale": "从持久检查点恢复属于 continue。"
+      "rationale": "从持久检查点恢复属于 continue。",
+      "expected_skill": "longtask"
     },
     {
       "id": "zh_change_active_architecture",
       "prompt": "修改活动 longtask 的存储架构，从单库迁移到分片方案，并保留现有工作包、迁移策略、审查证据和回滚能力。",
       "should_trigger": true,
       "expected_entry": "modify",
-      "rationale": "活动任务中的持久化和模块图变化属于架构修改。"
+      "rationale": "活动任务中的持久化和模块图变化属于架构修改。",
+      "expected_skill": "longtask"
     },
     {
       "id": "zh_independent_longtask_review",
       "prompt": "实现已经完成，请对这个跨会话 longtask 做独立的架构、安全和可靠性终审，并确认全部证据仍绑定当前版本。",
       "should_trigger": true,
       "expected_entry": "review",
-      "rationale": "明确要求版本绑定的多风险 longtask 审查。"
+      "rationale": "明确要求版本绑定的多风险 longtask 审查。",
+      "expected_skill": "longtask"
     },
     {
       "id": "zh_fix_typo",
       "prompt": "修复 README 中的一个错别字并检查差异。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "单一小改动不需要持久编排。"
+      "rationale": "单一小改动不需要持久编排。",
+      "expected_skill": null
     },
     {
       "id": "zh_explain_function",
       "prompt": "解释这个函数做什么，不要修改代码。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "局部解释可以在一个上下文完成。"
+      "rationale": "局部解释可以在一个上下文完成。",
+      "expected_skill": null
     },
     {
       "id": "zh_one_test",
       "prompt": "给现有日期解析器补一个单元测试。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "有边界的单项实现应使用普通工作流。"
+      "rationale": "有边界的单项实现应使用普通工作流。",
+      "expected_skill": null
     },
     {
       "id": "zh_status_only",
       "prompt": "告诉我这个仓库当前修改了哪些文件。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "简短只读状态检查不需要 longtask。"
+      "rationale": "简短只读状态检查不需要 longtask。",
+      "expected_skill": null
     },
     {
       "id": "zh_peer_domain_resume",
       "prompt": "继续本工作树的跨会话 SDK 任务：已有架构和有效 longtask 检查点，数据任务刚发布固定版本接口。核对材料后完成消费方适配，不修改提供方或其他八个窗口的区域。",
       "should_trigger": true,
       "expected_entry": "continue",
-      "rationale": "独立窗口已有有效状态，外部依赖到达后的实施仍从本地断点续接。"
+      "rationale": "独立窗口已有有效状态，外部依赖到达后的实施仍从本地断点续接。",
+      "expected_skill": "longtask"
     },
     {
       "id": "zh_peer_boundary_modify",
       "prompt": "修改现有 longtask 的模块合同和协作架构，将九个跨会话领域分为独立工作树任务，明确共享迁移、合同发布、消费适配和接线负责人，保留当前目标与状态。",
       "should_trigger": true,
       "expected_entry": "modify",
-      "rationale": "已有架构及状态的边界与协作工作流变化采用 modify，不需要新入口或总控模式。"
+      "rationale": "已有架构及状态的边界与协作工作流变化采用 modify，不需要新入口或总控模式。",
+      "expected_skill": "longtask"
     },
     {
       "id": "zh_two_windows_explain",
       "prompt": "解释两个 Codex 窗口与 Git worktree 的区别，这次只要简短说明，不执行也不保存任务。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "提及多窗口并不等于跨会话实施；单次解释不触发编排。"
+      "rationale": "提及多窗口并不等于跨会话实施；单次解释不触发编排。",
+      "expected_skill": null
     },
     {
       "id": "zh_peer_version_lookup",
       "prompt": "只核对这两个分支是否包含同一个接口提交并告诉我结果，暂时不实施、不建立或续接任务。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "局部只读版本检查不因涉及两个区域自动触发 longtask。"
+      "rationale": "局部只读版本检查不因涉及两个区域自动触发 longtask。",
+      "expected_skill": null
     },
     {
       "id": "zh_peer_window_creation",
       "prompt": "这个项目已有批准架构但没有当前检查点。请用 longtask 把跨会话实施按领域拆分，为每个独立工作树建立并命名任务窗口，把各自可写范围、接口依赖和验收派发过去；不要设常驻总控，也不要改变架构目标。",
       "should_trigger": true,
       "expected_entry": "continue",
-      "rationale": "已有架构的跨会话实施组织从 continue 初始化状态；原生窗口创建是协作行为而非新模式。"
+      "rationale": "已有架构的跨会话实施组织从 continue 初始化状态；原生窗口创建是协作行为而非新模式。",
+      "expected_skill": "longtask"
     },
     {
       "id": "zh_rename_window_only",
       "prompt": "把当前 Codex 会话名称改成 SDK 接口检查。这次仅修改会话标题，不需要代码实施或跨会话工作编排。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "独立的会话改名由原生工具完成，不因命名能力自动启用长任务编排。"
+      "rationale": "独立的会话改名由原生工具完成，不因命名能力自动启用长任务编排。",
+      "expected_skill": null
     },
     {
       "id": "zh_bounded_review",
       "prompt": "现在只审查这个二十行补丁并报告问题，不需要创建持久任务或跨会话交接。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "单次会话内的有界只读审查不应触发 longtask。"
+      "rationale": "单次会话内的有界只读审查不应触发 longtask。",
+      "expected_skill": null
     },
     {
       "id": "staged_single_conversation_project",
       "prompt": "从空目录实现一个会跨多个验收步骤的本地导入工具，用 longtask 保存必要状态；能在当前对话完成就完成，先走通核心链路，再补齐功能与约定展示，确需移交时按步骤接着做。",
       "should_trigger": true,
       "expected_entry": "setup",
-      "rationale": "明确请求新项目的分段验收与可恢复编排，从 setup 开始；目标层次不增加入口模式。"
+      "rationale": "明确请求新项目的分段验收与可恢复编排，从 setup 开始；目标层次不增加入口模式。",
+      "expected_skill": "longtask"
     },
     {
       "id": "main_progress_child_feedback",
       "prompt": "继续当前跨会话导入项目：已有架构和有效 longtask 检查点。解析窗口已交付固定提交，展示窗口仍在讨论可选配色。核对解析产物后推进当前独立集成验收，不要等所有子窗口结束，也别被配色消息带离主目标。",
       "should_trigger": true,
       "expected_entry": "continue",
-      "rationale": "有效任务继续消费子窗口结果并推进主线，从本地断点续接。"
+      "rationale": "有效任务继续消费子窗口结果并推进主线，从本地断点续接。",
+      "expected_skill": "longtask"
     },
     {
       "id": "chinese_commit_text_only",
       "prompt": "把这条 commit 说明改写成中文：fix: handle empty input。只返回文本，不提交代码、不建立持久任务。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "单次文本改写不因提交语言偏好触发任务编排。"
+      "rationale": "单次文本改写不因提交语言偏好触发任务编排。",
+      "expected_skill": null
     },
     {
       "id": "staging_concept_only",
       "prompt": "简短解释按模块拆分与按步骤移交有什么区别，以及骨架、血肉、皮毛各指什么。这次只解释，不执行也不保存任务。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "概念解释不触发多会话实施或检查点。"
+      "rationale": "概念解释不触发多会话实施或检查点。",
+      "expected_skill": null
     },
     {
       "id": "durable_plan_only",
       "prompt": "请用 longtask 为这个空项目建立跨会话可续接的设计与验收计划。本轮只规划，不写应用代码。",
       "should_trigger": true,
       "expected_entry": "setup",
-      "rationale": "明确的持久工作流范围与当前入口，而非关键词或任务步骤数量。"
+      "rationale": "明确的持久工作流范围与内部模式，而非关键词或任务步骤数量。",
+      "expected_skill": "longtask"
     },
     {
       "id": "explicit_durable_plan",
       "prompt": "为新服务简要列出三种设计方案，本轮只讨论，不建立持久工作流或修改文件。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。"
+      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。",
+      "expected_skill": null
     },
     {
       "id": "authorized_checkpoint_resume",
       "prompt": "继续这个有效 longtask 的未完成实现。此前已授权完整本地实施，压缩前的输入、包与证据仍有效，请沿用授权完成剩余验收。",
       "should_trigger": true,
       "expected_entry": "continue",
-      "rationale": "明确的持久工作流范围与当前入口，而非关键词或任务步骤数量。"
+      "rationale": "明确的持久工作流范围与内部模式，而非关键词或任务步骤数量。",
+      "expected_skill": "longtask"
     },
     {
       "id": "bounded_authorized_fix",
       "prompt": "已授权修复这个已知函数的单一边界错误，修改后跑相关测试，今天在本会话完成；无需持久工作流。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。"
+      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。",
+      "expected_skill": null
     },
     {
       "id": "partial_success_remaining_acceptance",
       "prompt": "继续有效 longtask 检查点：正常输入已通过，但原合同的空输入与输出校验未完成，请继续完成这些验收。",
       "should_trigger": true,
       "expected_entry": "continue",
-      "rationale": "明确的持久工作流范围与当前入口，而非关键词或任务步骤数量。"
+      "rationale": "明确的持久工作流范围与内部模式，而非关键词或任务步骤数量。",
+      "expected_skill": "longtask"
     },
     {
       "id": "partial_success_local_task",
       "prompt": "这个本会话的小修复已通过正常输入，请再验证空输入并完成，不用建立跨会话任务。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。"
+      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。",
+      "expected_skill": null
     },
     {
       "id": "replace_active_goal",
       "prompt": "停止当前 longtask 的导入工具实现，改为本轮只交付设计比较；保留可恢复检查点并协调当前目标，不继续旧实施。",
       "should_trigger": true,
       "expected_entry": "continue",
-      "rationale": "明确的持久工作流范围与当前入口，而非关键词或任务步骤数量。"
+      "rationale": "明确的持久工作流范围与内部模式，而非关键词或任务步骤数量。",
+      "expected_skill": "longtask"
     },
     {
       "id": "change_advisory_topic",
       "prompt": "刚才讨论导入工具，现在改为只比较 JSON 和 CSV 的区别，简短回答即可，不执行任务。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。"
+      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。",
+      "expected_skill": null
     },
     {
       "id": "selective_resume_inputs",
       "prompt": "恢复当前 longtask 的报表包。架构与有效检查点已存在，只读取当前目标、包和必要输入，完成原定修复与验收。",
       "should_trigger": true,
       "expected_entry": "continue",
-      "rationale": "明确的持久工作流范围与当前入口，而非关键词或任务步骤数量。"
+      "rationale": "明确的持久工作流范围与内部模式，而非关键词或任务步骤数量。",
+      "expected_skill": "longtask"
     },
     {
       "id": "many_files_known_fix",
       "prompt": "代码库有许多模块，这次只改一个已知错误消息；按需要查看文件并完成，不建立任务状态。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。"
+      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。",
+      "expected_skill": null
     },
     {
       "id": "explicit_review_recovery",
       "prompt": "用 longtask 对有效检查点中的实现做只读独立审查，绑定当前证据，审查结论下次会话需要继续，不授权修复。",
       "should_trigger": true,
       "expected_entry": "review",
-      "rationale": "明确的持久工作流范围与当前入口，而非关键词或任务步骤数量。"
+      "rationale": "明确的持久工作流范围与内部模式，而非关键词或任务步骤数量。",
+      "expected_skill": "longtask"
     },
     {
       "id": "security_keyword_only",
       "prompt": "只解释这段权限判断的行为，不修改代码、不做持久审查；出现安全相关词也只需局部说明。",
       "should_trigger": false,
       "expected_entry": null,
-      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。"
+      "rationale": "相邻关键词或多个检查不扩大单会话有界任务的范围。",
+      "expected_skill": null
+    },
+    {
+      "id": "contract_bug_continuation",
+      "prompt": "用 longtask 继续跨会话报销任务：批准合同要求重复提交只创建一笔记录，当前实现会创建两笔。修复实现并完成原验收，不改变业务规则。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "持久任务明确使用主技能；内部模式按可靠合同、当前意图和授权边界判断。",
+      "expected_skill": "longtask"
+    },
+    {
+      "id": "bounded_contract_bug",
+      "prompt": "同样的重复提交问题只需本轮修复一个已定位函数并运行现有回归，不建立持久任务。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "本轮有界任务无需持久编排，不以相邻模式关键词触发。",
+      "expected_skill": null
+    },
+    {
+      "id": "existing_unreliable_architecture",
+      "prompt": "用 longtask 接手这个需要数周改进的报销系统。有架构文件，但主要是空标题，接口和业务意图不可靠；已有代码可运行，请围绕接手目标补齐理解。",
+      "should_trigger": true,
+      "expected_entry": "retrofit",
+      "rationale": "持久任务明确使用主技能；内部模式按可靠合同、当前意图和授权边界判断。",
+      "expected_skill": "longtask"
+    },
+    {
+      "id": "bounded_doc_formatting",
+      "prompt": "只整理报销系统已有架构文档的格式与失效链接，合同已明确，本轮完成即可。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "本轮有界任务无需持久编排，不以相邻模式关键词触发。",
+      "expected_skill": null
+    },
+    {
+      "id": "documented_feature_continuation",
+      "prompt": "继续当前跨会话报销 longtask，架构、附件合同和有效检查点都存在；添加合同已经规定的上传功能并同步文档。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "持久任务明确使用主技能；内部模式按可靠合同、当前意图和授权边界判断。",
+      "expected_skill": "longtask"
+    },
+    {
+      "id": "bounded_document_update",
+      "prompt": "附件上传已实现且行为明确，本轮只补一段使用说明，不需要跨会话记录。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "本轮有界任务无需持久编排，不以相邻模式关键词触发。",
+      "expected_skill": null
+    },
+    {
+      "id": "approved_business_rule_change",
+      "prompt": "用 longtask 将既有报销合同的单级审批改为按金额分级审批，跨会话协调受影响接口、工作包和验收；已有目标与架构可靠。",
+      "should_trigger": true,
+      "expected_entry": "modify",
+      "rationale": "持久任务明确使用主技能；内部模式按可靠合同、当前意图和授权边界判断。",
+      "expected_skill": "longtask"
+    },
+    {
+      "id": "bounded_editorial_change",
+      "prompt": "报销规则保持不变，本轮只把界面里的“提交申请”改为“提交报销”。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "本轮有界任务无需持久编排，不以相邻模式关键词触发。",
+      "expected_skill": null
+    },
+    {
+      "id": "current_contract_midway_review",
+      "prompt": "用 longtask 对报销系统本阶段做只读独立审查，下次会话要接着消费结论；依据当前已批准的分级审批合同，不依据最初单级架构，不授权修复。",
+      "should_trigger": true,
+      "expected_entry": "review",
+      "rationale": "持久任务明确使用主技能；内部模式按可靠合同、当前意图和授权边界判断。",
+      "expected_skill": "longtask"
+    },
+    {
+      "id": "bounded_midway_review",
+      "prompt": "只在本轮查看报销审批函数并指出问题，不需要持久审查或修复。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "本轮有界任务无需持久编排，不以相邻模式关键词触发。",
+      "expected_skill": null
     }
   ]
 }

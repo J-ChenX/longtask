@@ -13,14 +13,15 @@ from scripts import measure_skill_context as measurement
 class SkillContextTests(unittest.TestCase):
     @staticmethod
     def package(root: Path, description: str = "管理续接") -> None:
-        entry = root / "skills/longtask-continue/SKILL.md"
+        entry = root / "skills/longtask/SKILL.md"
         entry.parent.mkdir(parents=True)
-        entry.write_text(f"---\nname: longtask-continue\ndescription: {description}\n---\n# Continue\n", encoding="utf-8")
+        entry.write_text(f"---\nname: longtask\ndescription: {description}\n---\n# Continue\n", encoding="utf-8")
         (root / "SKILL.md").write_bytes(
-            "# 根\r\n[模式](skills/longtask-continue/SKILL.md)\r\n[资料][input]\r\n"
+            "# 根\r\n[模式](references/任务续接.md)\r\n[资料][input]\r\n"
             "[input]: references/输入.md#合同\r\n```text\r\n[伪链接](missing.md)\r\n```\r\n".encode("utf-8")
         )
         (root / "references").mkdir()
+        (root / "references/任务续接.md").write_text("# 续接\n", encoding="utf-8")
         (root / "references/输入.md").write_text("# 合同\n", encoding="utf-8")
 
     def test_sizes_are_utf8_and_only_explicit_files_are_counted(self) -> None:
@@ -34,7 +35,7 @@ class SkillContextTests(unittest.TestCase):
             self.assertGreater(report["selected_total"]["utf8_bytes"], report["selected_total"]["characters"])
             self.assertEqual(report["discovery_description_total"], {"utf8_bytes": 12, "characters": 4})
             self.assertEqual(report["declared_local_reference_set"],
-                             ["references/输入.md", "skills/longtask-continue/SKILL.md"])
+                             ["references/任务续接.md", "references/输入.md"])
             self.assertEqual(before, {str(path): path.read_bytes() for path in root.rglob("*") if path.is_file()})
 
     def test_aliases_count_one_file(self) -> None:

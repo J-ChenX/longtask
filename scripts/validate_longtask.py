@@ -19,13 +19,11 @@ from pathlib import Path
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_VERSION = "4.0.0"
-SKILL_NAMES = (
-    "longtask-setup",
-    "longtask-continue",
-    "longtask-review",
-    "longtask-modify",
-    "longtask-retrofit",
+SKILL_VERSION = "4.1.0"
+SKILL_NAMES = ("longtask",)
+MODE_REFERENCES = (
+    "references/新建项目.md", "references/既有项目接入.md", "references/任务续接.md",
+    "references/架构变更.md", "references/任务审查.md",
 )
 REQUIRED_FILES = (
     "SKILL.md",
@@ -60,7 +58,7 @@ REQUIRED_FILES = (
     "tests/test_forward_workflows.py",
     "tests/test_setup_evals.py",
     "skills/longtask/SKILL.md",
-)
+) + MODE_REFERENCES
 SOURCE_EVALUATION_RESULTS = (
     "evals/host_results.json", "evals/invocation_results.json",
     "evals/forward_results.json", "evals/memory_results.json",
@@ -1174,10 +1172,21 @@ def check_skill_interface(path: Path, expected_name: str, errors: list[str]) -> 
 def check_disclosure_graph(errors: list[str]) -> None:
     root_text = strip_fenced_code(read_text(ROOT / "SKILL.md"))
     linked_targets = {target.strip("<>").split("#", 1)[0] for target in inline_link_targets(root_text)}
-    for name in SKILL_NAMES:
-        expected = f"skills/{name}/SKILL.md"
+    for expected in MODE_REFERENCES:
         if expected not in linked_targets:
             fail(errors, f"root skill does not link selected mode instructions: {expected}")
+
+
+def check_discovery_surface(errors: list[str]) -> None:
+    discovered = {path.relative_to(ROOT / "skills").as_posix()
+                  for path in (ROOT / "skills").rglob("SKILL.md")}
+    expected = {f"{name}/SKILL.md" for name in SKILL_NAMES}
+    if discovered != expected:
+        fail(errors, f"skill discovery surface must contain only the declared entries: {sorted(discovered)}")
+    interfaces = {path.relative_to(ROOT / "skills").as_posix()
+                  for path in (ROOT / "skills").rglob("openai.yaml")}
+    if interfaces != {f"{name}/agents/openai.yaml" for name in SKILL_NAMES}:
+        fail(errors, "skill interface surface contains missing or undeclared entries")
 
 
 def load_json(path: Path, errors: list[str]) -> dict[str, object] | None:
@@ -1662,11 +1671,10 @@ def main(argv: list[str] | None = None) -> int:
             fail(errors, f"missing required file: {relative}")
 
     check_skill(ROOT / "SKILL.md", "longtask", errors)
-    check_skill(ROOT / "skills" / "longtask" / "SKILL.md", "longtask", errors)
     for name in SKILL_NAMES:
         check_skill(ROOT / "skills" / name / "SKILL.md", name, errors)
-    for name in ("longtask", *SKILL_NAMES):
         check_skill_interface(ROOT / "skills" / name / "agents" / "openai.yaml", name, errors)
+    check_discovery_surface(errors)
     check_disclosure_graph(errors)
     check_portable_markdown_paths(ROOT, errors)
     for legacy in ("setup", "continue", "review", "modify", "retrofit"):

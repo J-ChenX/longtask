@@ -4,38 +4,40 @@ description: 编排需跨上下文恢复或协调独立验收包的编码任务�
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
-  version: "4.0.0"
+  version: "4.1.0"
 ---
 
 # 长任务编排
 
-恢复未完成编码任务，持续完成约定验收；收尾后只保留当前项目知识。激活时简述正在使用 longtask。`{skill-root}` 是包含本文件、`scripts/` 和 `references/` 的插件根，嵌套入口不是脚本根。只加载当前决策需要的资料，并复用仍有效的输入。
+恢复未完成编码任务，持续完成约定验收；收尾后只保留当前项目知识。激活时简述正在使用 longtask。`{skill-root}` 是包含本文件、`scripts/` 和 `references/` 的插件根，插件发现入口不是脚本根。只加载当前决策需要的资料，并复用仍有效的输入。
 
 ## 安全启动
 
-核对用户目标、仓库说明及 Git/工作树状态，保留无关改动。模式明确且无需恢复时直接进入对应入口；需要路由或恢复信息但没有有效输出时，先定位：
+核对用户目标、仓库说明及 Git/工作树状态，保留无关改动。模式明确且无需恢复时直接加载对应模式参考；需要路由或恢复信息但没有有效输出时，先定位：
 
 ```text
 python3 {skill-root}/scripts/longtask_state.py context --root {workspace-root} --view overview
 ```
 
-已知工作包可直接取详情，概览不能作为执行依据。恢复动作已由请求或有效授权明确时，首次查询带 `--resume-choice resume|review|inspect`；详情中 `recovery.selection_available=true` 才采用该动作。输入、诊断及异常的消费见[续接入口](skills/longtask-continue/SKILL.md#恢复决策)，不重复查询同一结论。
+已知工作包可直接取详情，概览不能作为执行依据。恢复动作已由请求或有效授权明确时，首次查询带 `--resume-choice resume|review|inspect`；详情中 `recovery.selection_available=true` 才采用该动作。输入、诊断及异常的消费见[续接参考](references/任务续接.md#恢复决策)，不重复查询同一结论。
 
-交接过期或阶段冲突时，先消费已有诊断；缺少定位依据才运行 `doctor --root {workspace-root} --output summary`。只接受当前 v3 状态和结构化 `handoff`，不执行旧帧，不迁移 1.x/2.x/3.x，也不从旧/无效状态继承批准、审查或完成声明。
+交接过期或阶段冲突时，先消费已有诊断；缺少定位依据才运行 `doctor --root {workspace-root} --output summary`。只接受当前 v3 状态和结构化 `handoff`，不执行旧帧，不读取或迁移其他技能版本的检查点，也不从旧/无效状态继承批准、审查或完成声明。
 
 ## 模式参考
 
-选择一个入口，传递已取得的有效输出，不预读全部模式：
+公开入口只有 `$longtask`。先判断当前请求是否需要持久编排或是否明确指定 longtask；小改动、解释和普通审查不自动启用。激活后按用户意图与可靠项目基础选模式，只加载当前参考并传递有效输出：
 
-| 入口 | 适用条件 |
+| 内部模式 | 触发与边界 |
 |---|---|
-| [setup](skills/longtask-setup/SKILL.md) | 新建或空项目。 |
-| [retrofit](skills/longtask-retrofit/SKILL.md) | 已有实现，既无可用检查点又无持久架构。 |
-| [continue](skills/longtask-continue/SKILL.md) | 恢复有效检查点，或为已有架构初始化当前状态。 |
-| [modify](skills/longtask-modify/SKILL.md) | 已建立项目的架构、模块合同、工作流或关键技术变更。 |
-| [review](skills/longtask-review/SKILL.md) | 用户要求 longtask 独立审查，或已激活任务需要审查。 |
+| [setup](references/新建项目.md) | 当前交付对象从零建立目标、设计与验收；已有项目沿合同新增功能通常用 continue。 |
+| [retrofit](references/既有项目接入.md) | 已有实现，但缺少可靠目标、结构或合同，妨碍后续工作；只补写已明确文档用 continue。 |
+| [continue](references/任务续接.md) | 沿现有目标与合同完成实现、修复、验证或文档维护；可恢复有效检查点，也可为已有可靠架构建立当前状态。 |
+| [modify](references/架构变更.md) | 改变已建立的业务规则、架构、模块职责、接口、工作流或关键技术；按原合同修复不属于 modify。 |
+| [review](references/任务审查.md) | 用户明确要求 longtask 审查，或已激活任务需要审查；对照当前批准的目标、合同与验收核验指定版本，默认只读，可在中途执行。 |
 
-普通审查不自动启用 longtask。`complete` 必须满足当前版本的完成不变量；`error` 不能猜测成有效状态。
+明确意图优先于状态建议；只规划、只查看、只审查约束所有模式，不扩大已有授权。有无架构文件只是定位线索，要核对内容是否足以支持当前目标。文档与代码冲突时先确认批准合同：偏离合同用 continue 修复，改变合同用 modify；依据不足时定向补齐或澄清，不自动用代码改写意图。
+
+模式可随工作推进切换；有活动检查点时在原任务中协调，不重新 init 或手改 mode 绕过恢复与阶段门。CLI 的 `route.entry` 是工作流建议，不是公开技能名称或授权。旧/无效状态、过期交接或冲突先按诊断协调，不能借模式选择继承批准或重建状态。`complete` 必须满足当前版本完成不变量，`error` 不能猜测成有效状态。
 
 ## 事实与授权
 

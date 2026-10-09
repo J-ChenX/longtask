@@ -1960,9 +1960,9 @@ class LongtaskStateTests(unittest.TestCase):
     def test_old_skill_state_is_rejected_without_compatibility_reading(self) -> None:
         state = self.init("setup")
         self.assertEqual(state["schema_version"], 3)
-        self.assertEqual(state["skill_version"], "4.0.0")
+        self.assertEqual(state["skill_version"], "4.1.0")
         path = self.root / ".longtask" / "state.json"
-        for version in ("1.0.0", "2.0.0", "3.0.0"):
+        for version in ("1.0.0", "2.0.0", "3.0.0", "4.0.0"):
             with self.subTest(version=version):
                 state["skill_version"] = version
                 path.write_text(json.dumps(state), encoding="utf-8")

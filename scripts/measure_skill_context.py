@@ -14,6 +14,7 @@ except ModuleNotFoundError:
 
 ROOT = Path(__file__).resolve().parents[1]
 MODES = ("setup", "retrofit", "continue", "modify", "review")
+MODE_REFERENCES = dict(zip(MODES, ("新建项目", "既有项目接入", "任务续接", "架构变更", "任务审查")))
 
 
 def counts(text: str) -> dict[str, int]:
@@ -88,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--only-loaded needs at least one --load and cannot be combined with --mode")
     selected = list(args.load) if args.only_loaded else ["SKILL.md", *args.load]
     if args.mode:
-        selected.append(f"skills/longtask-{args.mode}/SKILL.md")
+        selected.append(f"references/{MODE_REFERENCES[args.mode]}.md")
     try:
         candidate = measure(args.candidate, selected)
         baseline = measure(args.baseline, selected) if args.baseline else None

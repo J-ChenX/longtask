@@ -25,7 +25,7 @@ class SkillEvalTests(unittest.TestCase):
     def result_manifest() -> dict:
         corpus = PROJECT / "evals" / "invocation_cases.json"
         return {
-            "schema_version": 3,
+            "schema_version": 4,
             "evaluation": {
                 "method": "fresh-session classification",
                 "evaluator": "test-evaluator",
@@ -52,7 +52,7 @@ class SkillEvalTests(unittest.TestCase):
 
     def test_malformed_case_id_and_entry_fail_as_contract_errors(self) -> None:
         data = json.loads((PROJECT / "evals/invocation_cases.json").read_text())
-        for field in ("id", "expected_entry"):
+        for field in ("id", "expected_skill", "expected_entry"):
             with self.subTest(field=field):
                 malformed = copy.deepcopy(data)
                 malformed["cases"][0][field] = []
@@ -60,7 +60,7 @@ class SkillEvalTests(unittest.TestCase):
                 self.assertTrue(errors)
         _, errors = EVALS.score_classifications(
             [{"id": "case", "should_trigger": True, "expected_entry": "continue"}],
-            {"results": [{"id": "case", "selected": True, "entry": []}]},
+            {"results": [{"id": "case", "selected": True, "skill": "longtask", "entry": []}]},
         )
         self.assertTrue(errors)
 
@@ -70,8 +70,8 @@ class SkillEvalTests(unittest.TestCase):
             {"id": "negative", "should_trigger": False, "expected_entry": None},
         ]
         results = {"results": [
-            {"id": "positive", "selected": True, "entry": "review"},
-            {"id": "negative", "selected": True, "entry": "setup"},
+            {"id": "positive", "selected": True, "skill": "longtask", "entry": "review"},
+            {"id": "negative", "selected": True, "skill": "longtask", "entry": "setup"},
         ]}
         metrics, errors = EVALS.score(cases, results)
         self.assertEqual(errors, [])
@@ -82,16 +82,30 @@ class SkillEvalTests(unittest.TestCase):
         cases = [{"id": "negative", "should_trigger": False, "expected_entry": None}]
         metrics, errors = EVALS.score(
             cases,
-            {"results": [{"id": "negative", "selected": False, "entry": "setup"}]},
+            {"results": [{"id": "negative", "selected": False, "skill": None, "entry": "setup"}]},
         )
         self.assertEqual(metrics["cases"], 1)
         self.assertTrue(any("entry=null" in error for error in errors))
+
+    def test_single_skill_selection_is_distinct_from_internal_mode(self) -> None:
+        cases = [{"id": "positive", "should_trigger": True, "expected_entry": "review"}]
+        for skill in ("longtask-review", "review", None):
+            with self.subTest(skill=skill):
+                _, errors = EVALS.score_classifications(cases, {"results": [
+                    {"id": "positive", "selected": True, "skill": skill, "entry": "review"},
+                ]})
+                self.assertTrue(errors)
+        metrics, errors = EVALS.score_classifications(cases, {"results": [
+            {"id": "positive", "selected": True, "skill": "longtask", "entry": "review"},
+        ]})
+        self.assertEqual(errors, [])
+        self.assertEqual(metrics["entry_accuracy_on_selected_positives"], 1.0)
 
     def repeated_manifest(self) -> dict:
         manifest = self.result_manifest()
         cases = json.loads((PROJECT / "evals/invocation_cases.json").read_text())["cases"]
         decisions = [{"id": case["id"], "selected": case["should_trigger"],
-                      "entry": case["expected_entry"]} for case in cases]
+                      "skill": case["expected_skill"], "entry": case["expected_entry"]} for case in cases]
         manifest["evaluation"].update(
             assurance="trace_backed", repetitions=2, model="exact-model-version",
             trace_available=True, trace_id="trace/run-0000",
@@ -130,7 +144,7 @@ class SkillEvalTests(unittest.TestCase):
         manifest = self.repeated_manifest()
         cases = json.loads((PROJECT / "evals/invocation_cases.json").read_text())["cases"]
         for decision in manifest["repeat_runs"][1]["results"]:
-            decision.update(selected=False, entry=None)
+            decision.update(selected=False, skill=None, entry=None)
         metrics, errors = EVALS.score(cases, manifest)
         self.assertEqual(errors, [])
         self.assertEqual(metrics["evaluated_runs"], 2)
@@ -139,7 +153,7 @@ class SkillEvalTests(unittest.TestCase):
         manifest["repeat_runs"][1]["results"].pop()
         _, errors = EVALS.score(cases, manifest)
         self.assertTrue(any("missing result" in error for error in errors))
-        manifest["repeat_runs"][1]["results"].append({"id": "invented", "selected": False, "entry": None})
+        manifest["repeat_runs"][1]["results"].append({"id": "invented", "selected": False, "skill": None, "entry": None})
         _, errors = EVALS.score(cases, manifest)
         self.assertTrue(any("unexpected result" in error for error in errors))
 

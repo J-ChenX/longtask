@@ -2,7 +2,7 @@
 
 ## 项目身份
 
-`longtask` 是面向 Codex 个人使用的编码技能，用于必须跨越上下文重置、协调可独立验证工作包或跨会话保留决策的任务。4.0.0 是破坏性版本，不支持 Claude Code，也不读取或迁移 1.x/2.x/3.x 状态。
+`longtask` 是面向 Codex 个人使用的编码技能，用于必须跨越上下文重置、协调可独立验证工作包或跨会话保留决策的任务。当前版本为 4.1.0，仅支持 Codex；公开入口只有 longtask，五种模式按需加载，不读取或迁移其他技能版本的检查点。
 
 架构包含五层：
 
@@ -70,10 +70,10 @@
 |---|---|
 | 路由/共享工作流 | `SKILL.md`、路由/评测案例、工作流文档。 |
 | 状态或完成语义 | 状态协议、JSON schema、状态工具、测试、state-runtime 文档。 |
-| 审查语义 | `专家审查协议.md`、review 子技能、审查评测、expert-system 文档。 |
+| 审查语义 | `专家审查协议.md`、review 模式参考、审查评测、expert-system 文档。 |
 | 文档结构 | `文档架构.md`、document-architecture 文档、校验测试。 |
 | 平台能力行为 | `references/平台适配器.md`；不得硬编码短期产品限制。 |
-| 新增或重命名子技能 | 对应 `skills/{skill-name}/SKILL.md`、清单、README、校验。 |
+| 入口或模式参考变化 | `skills/longtask/SKILL.md`、对应 `references/`、清单、README、校验及发现面绑定。 |
 
 重要变更需同步 `docs/ARCHITECTURE.md` 和受影响模块文档、修复引用，然后运行：
 

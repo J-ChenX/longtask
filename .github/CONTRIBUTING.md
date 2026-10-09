@@ -53,8 +53,8 @@ python3 scripts/run_forward_evals.py --run
 # 执行确定性前向套件并保存本次结果
 python3 scripts/run_forward_evals.py --write
 # 重建本地候选，避免 dist 中旧归档与源码不一致
-python3 scripts/build_release.py build --root . --output dist/longtask-4.0.0.zip
-python3 scripts/build_release.py verify --root . --archive dist/longtask-4.0.0.zip
+python3 scripts/build_release.py build --root . --output dist/longtask-4.1.0.zip
+python3 scripts/build_release.py verify --root . --archive dist/longtask-4.1.0.zip
 ```
 
 发现元数据变化须按[调用评测协议](../references/评测协议.md)重新采样，不手动重绑旧分类。宿主结果必须保留真实的保证级别：没有在当前归档上采样的场景为 `unable_to_verify`，发布门保持阻塞。评测记录的更新不等于真实执行通过。

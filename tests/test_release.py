@@ -222,6 +222,12 @@ class ReleaseArchiveTests(unittest.TestCase):
             self.assertIn("longtask/release-manifest.json", names)
             self.assertIn("longtask/.codex-plugin/plugin.json", names)
             self.assertIn("longtask/references/personal-marketplace.json", names)
+            self.assertEqual([name for name in names if name.startswith("longtask/skills/")
+                              and name.endswith("/SKILL.md")], ["longtask/skills/longtask/SKILL.md"])
+            self.assertEqual([name for name in names if name.endswith("/agents/openai.yaml")],
+                             ["longtask/skills/longtask/agents/openai.yaml"])
+            for reference in ("新建项目", "既有项目接入", "任务续接", "架构变更", "任务审查"):
+                self.assertIn(f"longtask/references/{reference}.md", names)
             self.assertFalse(any(".claude" in name for name in names))
             self.assertFalse(any("longtask-1." in name or "longtask-2." in name for name in names))
             self.assertFalse(any("docs/tasks/" in name or "/.longtask/" in name or "/dist/" in name for name in names))
@@ -235,7 +241,7 @@ class ReleaseArchiveTests(unittest.TestCase):
             self.assertGreater(result["file_count"], 20)
             with zipfile.ZipFile(archive_path) as archive:
                 plugin = json.loads(archive.read("longtask/.codex-plugin/plugin.json"))
-            self.assertEqual(plugin["version"], "4.0.0")
+            self.assertEqual(plugin["version"], "4.1.0")
 
     def test_detached_verify_and_extract_require_a_valid_trusted_digest(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
