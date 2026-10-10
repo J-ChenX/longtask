@@ -11,9 +11,9 @@ longtask 是面向 Codex 的个人编码技能插件。它保存项目知识和�
 
 [快速开始](#快速开始) · [模式与场景](#模式与场景) · [文档导航](#文档导航) · [参与贡献](#参与贡献)
 
-## 4.1.0 更新
+## 4.2.0 更新
 
-公开入口收束为 `$longtask`，原五个子技能保留为内部工作流，按用户意图与可靠项目基础自动选择、按需加载。触发边界和场景见下文；使用变化、兼容性与验证范围见[4.1.0 版本说明](版本说明.md#410)。
+完善中期接续与历史定向回查，加入明确压缩信号桥及版本推进规范。公开入口仍为 `$longtask`，五种内部模式按需加载；兼容性与验证范围见[4.2.0 版本说明](版本说明.md#420)。
 
 压缩信号也进入流程：插件内置只读 PreCompact 检测和 SessionStart(compact) 恢复指令。安装后须在 `/hooks` 审阅并信任；它允许一次压缩，随后优先在安全出口执行已授权的新会话接管。实际退出仍依赖模型、原生能力与授权，不保证零压缩或任务最终完成，见[信号桥](references/平台适配器.md#内置压缩信号桥)。
 
@@ -36,8 +36,8 @@ longtask 是面向 Codex 的个人编码技能插件。它保存项目知识和�
 ```bash
 git clone https://github.com/J-ChenX/longtask.git
 cd longtask
-python3 scripts/build_release.py build --root . --output dist/longtask-4.1.0.zip
-python3 scripts/build_release.py verify --root . --archive dist/longtask-4.1.0.zip
+python3 scripts/build_release.py build --root . --output dist/longtask-4.2.0.zip
+python3 scripts/build_release.py verify --root . --archive dist/longtask-4.2.0.zip
 ```
 
 构建与验证确认归档和源码一致。安装及发布还需相应验收证据；其他渠道的归档须核对受信 SHA-256。
@@ -135,7 +135,7 @@ flowchart LR
 
 ## 兼容性与验证边界
 
-**4.1.0 仅支持 Codex。** 不读取或迁移其他技能版本的检查点（含 4.0.0），不支持跨版本回滚；故障恢复使用同版本受信工件。
+**4.2.0 仅支持 Codex。** 不读取或迁移其他技能版本的检查点（含 4.0.0），不支持跨版本回滚；故障恢复使用同版本受信工件。
 
 CI 和本地合同测试证明源码结构及可复现行为。真实宿主发布资格与效率收益需要各自的版本绑定证据，不能从 CI 通过推导。运行结果不进入 Git 或安装包，详见[项目规范](AGENTS.md#源码与产物架构规范)与[发布门](references/发布与恢复.md#单宿主发布门)。
 

@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_VERSION = "4.1.0"
+SKILL_VERSION = "4.2.0"
 SKILL_NAMES = ("longtask",)
 MODE_REFERENCES = (
     "references/新建项目.md", "references/既有项目接入.md", "references/任务续接.md",
@@ -1307,7 +1307,40 @@ def check_compaction_hooks(errors: list[str]) -> None:
                 fail(errors, "SessionStart requires bounded additionalContext")
 
 
+def check_version_sync(errors: list[str]) -> None:
+    """Release consumers only; semantic impact still requires contract review."""
+    manifest = load_json(ROOT / "release-manifest.json", errors)
+    if not isinstance(manifest, dict):
+        return
+    version = manifest.get("version")
+    if not isinstance(version, str) or not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
+        fail(errors, "release version must be an unprefixed X.Y.Z without leading zeroes")
+        return
+    if version != SKILL_VERSION:
+        fail(errors, "validator version differs from the release target")
+    for relative in ("scripts/longtask_state.py", "scripts/validate_longtask.py"):
+        try:
+            tree = ast.parse(read_text(ROOT / relative), filename=relative)
+            declarations = [node.value for node in tree.body if isinstance(node, ast.Assign)
+                            and any(isinstance(target, ast.Name) and target.id == "SKILL_VERSION"
+                                    for target in node.targets)]
+            if (len(declarations) != 1 or not isinstance(declarations[0], ast.Constant)
+                    or declarations[0].value != version):
+                fail(errors, f"{relative} version differs from the release target")
+        except (OSError, SyntaxError, UnicodeError) as exc:
+            fail(errors, f"cannot inspect release version consumer {relative}: {exc}")
+    try:
+        sections = re.findall(r"^## ([^\n]+)(?:\n|\Z)(.*?)(?=^## |\Z)",
+                              read_text(ROOT / "版本说明.md"), flags=re.MULTILINE | re.DOTALL)
+        bodies = [body.strip() for heading, body in sections if heading.strip() == version]
+        if len(bodies) != 1 or not bodies[0]:
+            fail(errors, "release target requires exactly one nonempty version-notes section")
+    except (OSError, UnicodeError) as exc:
+        fail(errors, f"cannot inspect version notes: {exc}")
+
+
 def check_metadata(errors: list[str]) -> None:
+    check_version_sync(errors)
     codex_plugin = load_json(ROOT / ".codex-plugin" / "plugin.json", errors)
     schema = load_json(ROOT / "references" / "state.schema.json", errors)
     marketplace = load_json(ROOT / "references" / "personal-marketplace.json", errors)

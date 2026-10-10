@@ -436,6 +436,39 @@ class ValidatorTests(unittest.TestCase):
                 self.assertTrue(errors)
                 self.assertTrue(all(isinstance(error, str) and error for error in errors))
 
+    def test_release_version_consumers_and_unique_notes_fail_closed_on_drift(self) -> None:
+        version = VALIDATOR.SKILL_VERSION
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'scripts').mkdir()
+            manifest = root / 'release-manifest.json'
+            notes = root / '版本说明.md'
+            scripts = [root / 'scripts/longtask_state.py', root / 'scripts/validate_longtask.py']
+            def restore():
+                manifest.write_text(json.dumps({'version': version}))
+                notes.write_text(f'# 版本说明\n\n## {version}\n\n兼容新增能力。\n')
+                for script in scripts:
+                    script.write_text(f'SKILL_VERSION = {version!r}\n')
+            def check():
+                errors = []
+                with mock.patch.object(VALIDATOR, 'ROOT', root):
+                    VALIDATOR.check_version_sync(errors)
+                return errors
+            restore()
+            self.assertEqual(check(), [])
+            for script in scripts:
+                restore()
+                script.write_text("SKILL_VERSION = '0.0.1'\n")
+                self.assertTrue(any('differs' in error for error in check()))
+            for raw in (f'## {version}\n', f'## {version}\nA\n## {version}\nB\n', '## 0.0.1\n旧说明\n'):
+                restore()
+                notes.write_text(raw)
+                self.assertTrue(any('version-notes' in error for error in check()))
+            for target in ('04.2.0', '4.2', '4.2.0-rc.1', '4.2.0+build', 'v4.2.0', '0.0.1'):
+                restore()
+                manifest.write_text(json.dumps({'version': target}))
+                self.assertTrue(check())
+
     def test_compaction_hook_configuration_rejects_missing_scope_async_and_unbounded_callbacks(self) -> None:
         valid = json.loads((PROJECT / 'hooks/hooks.json').read_text())
         variants = [valid]
@@ -857,7 +890,7 @@ class ValidatorTests(unittest.TestCase):
             root = Path(temporary)
             (root / "scripts").mkdir()
             (root / "scripts/build_release.py").write_text("# fixture\n")
-            (root / "release-manifest.json").write_text(json.dumps({"package": "longtask", "version": "4.1.0"}))
+            (root / "release-manifest.json").write_text(json.dumps({"package": "longtask", "version": "4.2.0"}))
             (root / "evals").mkdir()
             data = self.host_fixture()
             (root / "evals/host_results.json").write_text(json.dumps(data))
@@ -931,14 +964,14 @@ class ValidatorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=PROJECT) as temporary:
             path = Path(temporary) / "SKILL.md"
             path.write_text(
-                "---\nname: temporary\ndescription: user's durable workflow\nlicense: MIT\ncompatibility: Codex with Python 3.14+\nmetadata:\n  version: 4.1.0\n---\n# Temporary\n",
+                "---\nname: temporary\ndescription: user's durable workflow\nlicense: MIT\ncompatibility: Codex with Python 3.14+\nmetadata:\n  version: 4.2.0\n---\n# Temporary\n",
                 encoding="utf-8",
             )
             errors: list[str] = []
             VALIDATOR.check_skill(path, "temporary", errors)
             self.assertEqual(errors, [])
             path.write_text(
-                "---\nname: temporary\ndescription: \"unclosed\nmetadata:\n  version: 4.1.0\n---\n# Temporary\n",
+                "---\nname: temporary\ndescription: \"unclosed\nmetadata:\n  version: 4.2.0\n---\n# Temporary\n",
                 encoding="utf-8",
             )
             errors = []
@@ -949,9 +982,9 @@ class ValidatorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=PROJECT) as temporary:
             path = Path(temporary) / "SKILL.md"
             base = ("---\nname: temporary\ndescription: Durable workflow\nlicense: MIT\n"
-                    "compatibility: Codex with Python 3.14+\nmetadata:\n  version: \"4.1.0\"\n---\n# Temporary\n")
+                    "compatibility: Codex with Python 3.14+\nmetadata:\n  version: \"4.2.0\"\n---\n# Temporary\n")
             for text in (base.replace("license: MIT", "license: MIT\nlicense: Apache-2.0"),
-                         base.replace('  version: "4.1.0"', '  version: "4.1.0"\n  version: "4.1.0"'),
+                         base.replace('  version: "4.2.0"', '  version: "4.2.0"\n  version: "4.2.0"'),
                          base.replace("Codex with Python 3.14+", "x" * 501)):
                 with self.subTest(text=text):
                     path.write_text(text, encoding="utf-8")

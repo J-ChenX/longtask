@@ -241,7 +241,7 @@ class ReleaseArchiveTests(unittest.TestCase):
             self.assertGreater(result["file_count"], 20)
             with zipfile.ZipFile(archive_path) as archive:
                 plugin = json.loads(archive.read("longtask/.codex-plugin/plugin.json"))
-            self.assertEqual(plugin["version"], "4.1.0")
+            self.assertEqual(plugin["version"], "4.2.0")
 
     def test_detached_verify_and_extract_require_a_valid_trusted_digest(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

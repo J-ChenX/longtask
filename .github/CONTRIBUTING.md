@@ -53,8 +53,8 @@ python3 scripts/run_forward_evals.py --run
 # 执行确定性前向套件并保存本次结果
 python3 scripts/run_forward_evals.py --write
 # 重建本地候选，避免 dist 中旧归档与源码不一致
-python3 scripts/build_release.py build --root . --output dist/longtask-4.1.0.zip
-python3 scripts/build_release.py verify --root . --archive dist/longtask-4.1.0.zip
+python3 scripts/build_release.py build --root . --output dist/longtask-4.2.0.zip
+python3 scripts/build_release.py verify --root . --archive dist/longtask-4.2.0.zip
 ```
 
 发现元数据变化须按[调用评测协议](../references/评测协议.md)重新采样，不手动重绑旧分类。宿主结果必须保留真实的保证级别：没有在当前归档上采样的场景为 `unable_to_verify`，发布门保持阻塞。评测记录的更新不等于真实执行通过。
@@ -67,21 +67,21 @@ CI 检查语料和源码并执行当前确定性合同测试，不依赖本地�
 
 保持单个明确目的，说明用户可见的问题、变更后的行为、执行过的验证与剩余限制。重要变更同步架构和受影响模块，并按 [AGENTS.md](../AGENTS.md#仓库变更)进行风险审查；细则引用对应权威文件。
 
-提交说明使用简短的 `docs:`、`fix:`、`feat:`、`test:` 或 `ci:` 前缀即可，无需为文档修改提升技能版本。不要包含评测结果、trace、快照、`.longtask/`、`dist/`、个人配置或秘密；保留无关改动。按[行为准则](CODE_OF_CONDUCT.md)参与讨论。
+提交说明使用简短的 `docs:`、`fix:`、`feat:`、`test:` 或 `ci:` 前缀即可，版本是否推进按[版本推进](../references/发布与恢复.md#版本推进)判断，技能执行指令或合同变更不能仅因 `docs:` 前缀免于评估。不要包含评测结果、trace、快照、`.longtask/`、`dist/`、个人配置或秘密；保留无关改动。按[行为准则](CODE_OF_CONDUCT.md)参与讨论。
 
 贡献将以仓库的 [MIT 许可证](../LICENSE)分发。个人维护项目不承诺固定响应时间。
 
 ## 自动生成版本候选
 
-更新全部版本元数据，并在[版本说明](../版本说明.md)中补充对应的 `## X.Y.Z` 章节，写明主要变化、兼容性和验证范围。说明与源码一起提交后，正常推送主分支即可：
+先按[版本推进](../references/发布与恢复.md#版本推进)评估累计差异及升级路径，更新全部版本元数据，并在[版本说明](../版本说明.md)中补充对应的 `## X.Y.Z` 章节，写明主要变化、兼容性和验证范围。说明与源码一起提交后，正常推送主分支即可：
 
 ```bash
 git push origin main
 ```
 
-工作流自动检测尚未发布的版本，通过检查后创建版本标签、打包并发布候选预发布。无需手动运行 `git tag` 或配置 `push.followTags`；已经发布的同版普通提交跳过发布，不覆盖既有标签和资产。当前尚未发布的 4.1.0 也会在启用后的首次 main 推送中被检测。
+工作流自动检测尚未发布的版本，通过检查后创建版本标签、打包并发布候选预发布。无需手动运行 `git tag` 或配置 `push.followTags`；已经发布的同版普通提交跳过发布，不覆盖既有标签和资产。版本是否已经发布以实际 Release/标签观测为准，不从本地分支或文案推断。
 
-API 查询失败、冲突标签或未完成草稿会阻止发布，保留具体诊断；可在 Actions 中对 main 手动重试。更完整的失败恢复、候选与正式发布边界见[发布合同](../references/发布与恢复.md#github-候选预发布)。
+API 查询失败、冲突标签或未完成草稿会阻止发布，保留具体诊断。版本未出现时的远端核对、修复后重试以及候选与正式发布边界见[发布合同](../references/发布与恢复.md#github-候选预发布)。
 
 修改自动发布 helper 时，运行源码侧边界测试：
 

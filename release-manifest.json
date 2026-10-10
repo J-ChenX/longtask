@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "package": "longtask",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "archive_root": "longtask",
   "files": [
     ".gitattributes",

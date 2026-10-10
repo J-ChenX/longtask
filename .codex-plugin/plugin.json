@@ -1,6 +1,6 @@
 {
   "name": "longtask",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "description": "面向 Codex 个人使用的可恢复、可审查跨会话编码编排",
   "author": {
     "name": "Nix Jiang",

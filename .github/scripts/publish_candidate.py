@@ -27,7 +27,10 @@ def api(method: str, path: str, payload: dict | None = None, *, missing_ok: bool
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            return json.load(response)
+            record = json.load(response)
+            if record is None:
+                raise ReleaseError(f"GitHub {method} {path} returned an invalid null record")
+            return record
     except urllib.error.HTTPError as error:
         try:
             if error.code == 404 and missing_ok:
@@ -85,13 +88,30 @@ def listed_release_exists(tag: str) -> bool:
 
 
 def tag_commit(tag: str) -> str | None:
-    record = api("GET", f"commits/{tag}", missing_ok=True)
+    # Commit lookup returns 422 for a missing ref and can resolve branch names.
+    # Only an exact tag reference returning 404 establishes that the tag is absent.
+    record = api("GET", f"git/ref/tags/{tag}", missing_ok=True)
     if record is None:
         return None
-    commit = record.get("sha") if isinstance(record, dict) else None
-    if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit):
-        raise ReleaseError("GitHub returned an invalid tag commit")
-    return commit
+    if not isinstance(record, dict) or record.get("ref") != f"refs/tags/{tag}":
+        raise ReleaseError("GitHub returned an invalid tag reference")
+    seen = set()
+    while True:
+        target = record.get("object")
+        sha = target.get("sha") if isinstance(target, dict) else None
+        kind = target.get("type") if isinstance(target, dict) else None
+        if (not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{40}", sha)
+                or not isinstance(kind, str) or kind not in {"commit", "tag"}):
+            raise ReleaseError("GitHub returned an invalid tag target")
+        if kind == "commit":
+            return sha
+        if sha in seen or len(seen) >= 8:
+            raise ReleaseError("GitHub returned a cyclic or excessive annotated tag chain")
+        seen.add(sha)
+        # A missing referenced object is corruption, not an absent version tag.
+        record = api("GET", f"git/tags/{sha}")
+        if not isinstance(record, dict) or record.get("sha") != sha:
+            raise ReleaseError("GitHub returned an invalid annotated tag object")
 
 
 def require_matching_tag(tag: str, commit: str) -> bool:
