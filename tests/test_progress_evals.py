@@ -17,6 +17,13 @@ SPEC.loader.exec_module(P)
 
 
 class ProgressEvalTests(unittest.TestCase):
+    def test_source_case_check_never_reads_saved_execution_results(self):
+        with mock.patch.object(sys, 'argv', ['run_progress_evals.py', '--check-cases',
+                                            '--results', '/absent/execution-results.json']), \
+             mock.patch.object(P, 'verify', side_effect=AssertionError('must not consume results')), \
+             mock.patch.object(P, 'collect_case', side_effect=AssertionError('must not invoke host')):
+            self.assertEqual(P.main(), 0)
+
     def test_fixed_eight_journeys_and_real_multiturn_frontier(self):
         _, cases = P.load_cases()
         self.assertEqual({case['id'] for case in cases}, P.CASE_IDS)

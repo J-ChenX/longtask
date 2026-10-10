@@ -17,6 +17,7 @@
     "evidence"
   ],
   "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "Longtask",
     "shortDescription": "可恢复、可审查的跨会话编码编排",

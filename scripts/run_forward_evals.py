@@ -43,6 +43,9 @@ CONTRACT_INPUTS = (
     "文档架构.md",
     "references/新项目设计.md",
     "scripts/longtask_state.py",
+    "scripts/longtask_hooks.py",
+    "hooks/hooks.json",
+    "tests/test_longtask_hooks.py",
     "scripts/knowledge_context.py",
     "scripts/required_inputs.py",
     "scripts/acceptance_coverage.py",
@@ -60,6 +63,7 @@ CONTRACT_INPUTS = (
 DEFAULT_TIMEOUT_SECONDS = 300.0
 DEFAULT_SUITE = "tests.test_forward_workflows.ForwardWorkflowTests"
 TEST_SUITES = {
+    "tests.test_longtask_hooks.LongtaskHookTests": ("test_longtask_hooks.py", "LongtaskHookTests"),
     DEFAULT_SUITE: ("test_forward_workflows.py", "ForwardWorkflowTests"),
     "tests.test_longtask_state.LongtaskStateTests": ("test_longtask_state.py", "LongtaskStateTests"),
 }

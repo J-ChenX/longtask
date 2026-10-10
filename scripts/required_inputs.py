@@ -5,6 +5,7 @@ Refs: Markdown path[#section], state:field or state:/JSON/pointer,
 work_package:ID, code:relative.py#Qualified.symbol, and
  evidence:global:KIND:CHECK, or
  evidence:package:ID:KIND:CHECK. Evidence components are percent encoded.
+thread:HOST/ID#QUERY produces an unloaded locator for host retrieval, never history.
 Only Python class/function AST symbols are supported. --expect-sha256 REF=HASH
 binds document/code selections, not approval. --from-handoff requires a fresh
 frame. Existing validation_evidence:CHECK shorthand requires a unique scope/kind.
@@ -301,6 +302,28 @@ def legacy_evidence_ref(session, ref):
             'binding': session.binding()}
 
 
+def thread_locator(ref):
+    """Describe a selected history location; no host access, shell or authority."""
+    value = ref.removeprefix('thread:')
+    if value.count('#') != 1:
+        fail('invalid_reference', 'Thread reference requires thread:HOST/ID#QUERY')
+    address, query = value.split('#')
+    if address.count('/') != 1:
+        fail('invalid_reference', 'Thread reference requires one host and one thread ID')
+    host, thread_id = map(decode, address.split('/'))
+    query = decode(query)
+    # IDs are opaque host identities, not repository paths or shell fragments.
+    for identity in (host, thread_id):
+        if (len(identity.encode()) > 256 or identity in {'.', '..'}
+                or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', identity)):
+            fail('invalid_reference', 'Expected a bounded opaque host/thread identity')
+    return {'kind': 'thread_locator', 'loaded': False, 'verified': False,
+            'locator': {'host_id': host, 'thread_id': thread_id, 'query': query},
+            'diagnostic': {'code': 'host_retrieval_required',
+                           'message': 'Locator only; retrieve selected history through available host tools'},
+            'assurance': 'candidate_history_not_current_evidence'}
+
+
 def resolve_one(session, ref, expected=None):
     if not ref or len(ref.encode()) > kc.MAX_REF_BYTES or any(ord(c) < 32 for c in ref):
         fail('invalid_reference', 'Empty, oversized or control-character reference')
@@ -308,6 +331,10 @@ def resolve_one(session, ref, expected=None):
         fail('invalid_binding', 'Expected a lowercase SHA-256 file digest')
     if ref.startswith('code:'):
         return symbol(session, ref, expected)
+    if ref.startswith('thread:'):
+        if expected is not None:
+            fail('invalid_binding', 'A thread locator is not a file digest binding')
+        return thread_locator(ref)
     if ref.startswith(('state:', 'work_package:', 'evidence:', 'validation_evidence:')):
         if expected is not None:
             fail('invalid_binding', 'File digest expectations only apply to knowledge and code refs')

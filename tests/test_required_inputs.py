@@ -69,6 +69,44 @@ class RequiredInputsTests(unittest.TestCase):
             self.assertEqual(item['verdict'], 'pass')
             self.assertFalse(item['verified'])
 
+    def test_thread_locator_is_not_loaded_history_evidence_or_authorization(self):
+        self.write('docs/a.md', '# Current contract\n')
+        before = {str(p.relative_to(self.root)): p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        ref = 'thread:local/observed-thread-id#' + quote('V029 原始失败', safe='')
+        result = self.resolve(['docs/a.md', ref])
+        item = result['inputs'][1]
+        self.assertEqual(item['locator'], {'host_id': 'local', 'thread_id': 'observed-thread-id',
+                                           'query': 'V029 原始失败'})
+        self.assertFalse(result['complete'])
+        self.assertFalse(item['loaded'])
+        self.assertFalse(item['verified'])
+        self.assertEqual(item['diagnostic']['code'], 'host_retrieval_required')
+        self.assertFalse(result['trust']['grants_authorization'])
+        self.assertNotIn('text', item)
+        self.assertEqual(before, {str(p.relative_to(self.root)): p.read_bytes() for p in self.root.rglob('*') if p.is_file()})
+
+    def test_required_history_in_fresh_frame_still_requires_host_retrieval(self):
+        state = self.init()
+        frame = {k: v for k, v in state['handoff'].items() if k in ri.runtime.HANDOFF_INPUT_KEYS}
+        frame['required_inputs'] = ['state:goal', 'thread:local/observed-id#failure']
+        self.mutation(state, 'handoff', '--data', json.dumps(frame))
+        result = self.resolve([], from_handoff=True)
+        self.assertFalse(result['complete'])
+        self.assertTrue(result['inputs'][0]['loaded'])
+        self.assertFalse(result['inputs'][1]['loaded'])
+
+    def test_thread_reference_malformed_identity_and_file_digest_are_rejected(self):
+        refs = ['thread:local/id', 'thread:local/id#', 'thread:local/id/extra#query',
+                'thread:local/%2E%2E#query', 'thread:local/id#%0Acommand',
+                'thread:local/id#%ZZ', 'thread:local/id#one#two',
+                'thread:local/$(command)#query']
+        result = self.resolve(refs)
+        self.assertTrue(all(not item['loaded'] for item in result['inputs']))
+        self.assertTrue(all(item['diagnostic']['code'] == 'invalid_reference' for item in result['inputs']))
+        ref = 'thread:local/id#query'
+        result = self.resolve([ref], expected={ref: '0' * 64})
+        self.assertEqual(result['inputs'][0]['diagnostic']['code'], 'invalid_binding')
+
     def test_state_missing_invalid_and_legacy_are_not_consumed(self):
         result = self.resolve(['state:goal'])
         self.assertFalse(result['complete'])

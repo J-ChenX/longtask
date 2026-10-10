@@ -560,6 +560,38 @@
       "expected_entry": null,
       "rationale": "本轮有界任务无需持久编排，不以相邻模式关键词触发。",
       "expected_skill": null
+    },
+    {
+      "id": "zh_autonomous_session_chain",
+      "prompt": "用longtask持续完成这个跨会话导入项目，允许按需自主建立接续对话并传递任务；只传核心结果和历史定位，缺细节时回查原对话。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "已明确批准目标的跨会话实施及自主接续从continue推进。",
+      "expected_skill": "longtask"
+    },
+    {
+      "id": "zh_required_history_resume",
+      "prompt": "用longtask继续当前跨会话实现，已有有效状态和实施授权；当前恢复帧含原对话失败探针定位，核对所需原始条件后修复并验收。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "rationale": "历史定向消费服务当前有效长任务，不替换当前目标。",
+      "expected_skill": "longtask"
+    },
+    {
+      "id": "zh_history_only_lookup",
+      "prompt": "只从这段旧对话找出当时使用的测试命令并告诉我；不实施、不保存状态、不建立会话。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "局部读史查询本身不要求持久编排。",
+      "expected_skill": null
+    },
+    {
+      "id": "zh_session_permission_explain",
+      "prompt": "只解释允许本地实施和允许创建新对话的区别，不执行任务。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "rationale": "会话授权的单次解释不自动触发技能。",
+      "expected_skill": null
     }
   ]
 }

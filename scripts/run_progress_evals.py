@@ -107,6 +107,22 @@ def load_cases():
         raise ValueError('Supplemental boundary cases must be explicitly distinguished from core eight')
     if any(not case.get('phases') or len({p['id'] for p in case['phases']}) != len(case['phases']) for case in cases):
         raise ValueError('Every journey needs unique executable phases')
+    native = manifest.get('native_session_cases')
+    if (not isinstance(native, list) or not native
+            or any(not isinstance(c, dict) for c in native)):
+        raise ValueError('Native session cases require separate raw scenarios')
+    identities = [c.get('id') for c in native]
+    if (any(not isinstance(i, str) or not i for i in identities)
+            or len(set(identities)) != len(identities) or set(identities) & CASE_IDS):
+        raise ValueError('Native case identities must be unique and separate from CLI journeys')
+    for case in native:
+        if (case.get('role') not in {'sender', 'receiver'}
+                or any(not isinstance(case.get(k), str) or not case[k].strip()
+                       for k in ('prompt', 'fixture_setup'))
+                or any(not isinstance(case.get(k), list) or not case[k]
+                       or any(not isinstance(v, str) or not v.strip() for v in case[k])
+                       for k in ('capabilities', 'checks'))):
+            raise ValueError('Native cases require role, prompt, fixture setup, capabilities and independent checks')
     return manifest, cases
 
 
@@ -618,6 +634,7 @@ def verify(data, private=False):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('--check-cases', action='store_true', help='Check CLI and native case sources without loading results')
     ap.add_argument('--collect', action='store_true')
     ap.add_argument('--verify-private', action='store_true')
     ap.add_argument('--case', choices=sorted(CASE_IDS))
@@ -627,6 +644,14 @@ def main():
     ap.add_argument('--retention-until', type=helper().collector_api().retention_deadline)
     ap.add_argument('--timeout', type=helper().collector_api().finite_timeout, default=120)
     args = ap.parse_args()
+    if args.check_cases:
+        if args.collect or args.verify_private or args.out or args.retention_until or args.case:
+            ap.error('--check-cases cannot run collection or verify saved evidence')
+        manifest, cases = load_cases()
+        print(json.dumps({'status': 'pass', 'cli_cases': len(cases),
+                          'native_session_cases': len(manifest['native_session_cases']),
+                          'behavior_status': 'not_evaluated'}, ensure_ascii=False))
+        return 0
     if args.collect:
         if args.verify_private or not args.out or not args.retention_until:
             ap.error('Collection requires new --out and --retention-until; cannot combine --verify-private')

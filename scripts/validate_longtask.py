@@ -41,6 +41,9 @@ REQUIRED_FILES = (
     "release-manifest.json",
     "scripts/build_release.py",
     "scripts/longtask_state.py",
+    "scripts/longtask_hooks.py",
+    "hooks/hooks.json",
+    "tests/test_longtask_hooks.py",
     "scripts/run_skill_evals.py",
     "scripts/run_forward_evals.py",
     "scripts/knowledge_context.py",
@@ -1264,6 +1267,46 @@ def check_invocation_results(errors: list[str]) -> None:
             fail(errors, "invocation result verifier failed: " + (process.stderr or process.stdout).strip())
 
 
+def check_compaction_hooks(errors: list[str]) -> None:
+    data = load_json(ROOT / "hooks/hooks.json", errors)
+    if data is None:
+        return
+    events = data.get("hooks")
+    if not isinstance(events, dict) or set(events) != {"PreCompact", "SessionStart"}:
+        fail(errors, "compaction bridge must declare only PreCompact and SessionStart")
+        return
+    for event, accepted, rejected in (
+        ("PreCompact", ("auto", "manual"), ("startup", "compact", "auto-other", "")),
+        ("SessionStart", ("compact",), ("startup", "resume", "clear", "compact-other", "")),
+    ):
+        groups = events[event]
+        if not isinstance(groups, list) or len(groups) != 1 or not isinstance(groups[0], dict):
+            fail(errors, f"{event} requires one bounded synchronous hook group")
+            continue
+        group = groups[0]
+        try:
+            matcher = re.compile(group.get("matcher", ""))
+            if not all(matcher.search(value) for value in accepted) or any(matcher.search(value) for value in rejected):
+                fail(errors, f"{event} matcher must target only its compaction sources")
+        except (re.error, TypeError):
+            fail(errors, f"invalid {event} matcher")
+        hooks = group.get("hooks")
+        if not isinstance(hooks, list) or len(hooks) != 1 or not isinstance(hooks[0], dict):
+            fail(errors, f"{event} requires one command consumer")
+            continue
+        hook = hooks[0]
+        if (hook.get("type") != "command" or hook.get("command") != 'python3 "${PLUGIN_ROOT}/scripts/longtask_hooks.py"'
+                or hook.get("async", False) is not False):
+            fail(errors, f"{event} must synchronously consume the quoted bundled bridge")
+        timeout = hook.get("timeout")
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or not 0 < timeout <= 5:
+            fail(errors, f"{event} hook timeout exceeds the bounded callback contract")
+        if event == "SessionStart":
+            budget = hook.get("additionalContextLimit")
+            if isinstance(budget, bool) or not isinstance(budget, int) or not 0 < budget <= 2500:
+                fail(errors, "SessionStart requires bounded additionalContext")
+
+
 def check_metadata(errors: list[str]) -> None:
     codex_plugin = load_json(ROOT / ".codex-plugin" / "plugin.json", errors)
     schema = load_json(ROOT / "references" / "state.schema.json", errors)
@@ -1273,6 +1316,8 @@ def check_metadata(errors: list[str]) -> None:
             fail(errors, "Codex plugin identity/version does not match longtask")
         if codex_plugin.get("skills") != "./skills/":
             fail(errors, "Codex plugin must use the native ./skills/ discovery root")
+        if codex_plugin.get("hooks") != "./hooks/hooks.json":
+            fail(errors, "Codex plugin must discover the bundled compaction hooks")
         interface = codex_plugin.get("interface")
         required_interface = {
             "displayName", "shortDescription", "longDescription", "developerName", "category",
@@ -1635,7 +1680,7 @@ def check_repository_content(errors: list[str]) -> None:
 
 def check_corpus_contracts(errors: list[str]) -> None:
     for script, arguments in (("run_skill_evals.py", []), ("run_forward_evals.py", ["--check-cases"]),
-                              ("run_setup_evals.py", [])):
+                              ("run_setup_evals.py", []), ("run_progress_evals.py", ["--check-cases"])):
         try:
             process = subprocess.run([sys.executable, str(ROOT / "scripts" / script), *arguments],
                                      cwd=ROOT, capture_output=True, text=True, check=False,
@@ -1720,6 +1765,7 @@ def main(argv: list[str] | None = None) -> int:
             fail(errors, f"invalid Python syntax in {script.relative_to(ROOT)}: {exc}")
 
     check_metadata(errors)
+    check_compaction_hooks(errors)
     if not args.installed:
         check_repository_content(errors)
     check_corpus_contracts(errors)

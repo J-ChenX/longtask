@@ -19,6 +19,7 @@
     ".codex-plugin",
     "docs",
     "evals",
+    "hooks",
     "references",
     "scripts",
     "skills",

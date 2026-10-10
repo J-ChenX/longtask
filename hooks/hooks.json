@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "^(auto|manual)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/scripts/longtask_hooks.py\"",
+            "timeout": 5,
+            "statusMessage": "Checking longtask compaction exit"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "^compact$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/scripts/longtask_hooks.py\"",
+            "timeout": 5,
+            "additionalContextLimit": 2500,
+            "statusMessage": "Recovering longtask session exit"
+          }
+        ]
+      }
+    ]
+  }
+}

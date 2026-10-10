@@ -181,6 +181,16 @@
     {
       "id": "goal_coverage_external_environment",
       "test": "test_goal_coverage_keeps_missing_outcome_and_changed_external_environment_visible"
+    },
+    {
+      "id": "compact_signal_bounded_delivery",
+      "test": "test_compact_delivers_only_bounded_locator_and_no_authority",
+      "suite": "tests.test_longtask_hooks.LongtaskHookTests"
+    },
+    {
+      "id": "precompact_readonly_continue",
+      "test": "test_precompact_detects_without_stopping_or_writing",
+      "suite": "tests.test_longtask_hooks.LongtaskHookTests"
     }
   ]
 }

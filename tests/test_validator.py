@@ -436,6 +436,28 @@ class ValidatorTests(unittest.TestCase):
                 self.assertTrue(errors)
                 self.assertTrue(all(isinstance(error, str) and error for error in errors))
 
+    def test_compaction_hook_configuration_rejects_missing_scope_async_and_unbounded_callbacks(self) -> None:
+        valid = json.loads((PROJECT / 'hooks/hooks.json').read_text())
+        variants = [valid]
+        for field, value in (('async', True), ('timeout', 300), ('command', 'python3 /unbound/bridge.py'),
+                             ('additionalContextLimit', 100000)):
+            data = copy.deepcopy(valid)
+            data['hooks']['SessionStart'][0]['hooks'][0][field] = value
+            variants.append(data)
+        data = copy.deepcopy(valid)
+        data['hooks']['SessionStart'][0]['matcher'] = '.*'
+        variants.append(data)
+        variants.append({'hooks': {'SessionStart': valid['hooks']['SessionStart']}})
+        for index, data in enumerate(variants):
+            with self.subTest(index=index), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                (root / 'hooks').mkdir()
+                (root / 'hooks/hooks.json').write_text(json.dumps(data))
+                errors = []
+                with mock.patch.object(VALIDATOR, 'ROOT', root):
+                    VALIDATOR.check_compaction_hooks(errors)
+                self.assertEqual(bool(errors), index != 0, errors)
+
     def test_documentation_names_are_validated_as_links_not_historical_spellings(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -446,7 +468,7 @@ class ValidatorTests(unittest.TestCase):
                 stack.enter_context(mock.patch.object(VALIDATOR, "ROOT", root))
                 stack.enter_context(mock.patch.object(VALIDATOR, "REQUIRED_FILES", ()))
                 stack.enter_context(mock.patch.object(VALIDATOR, "SKILL_NAMES", ()))
-                for name in ("check_skill", "check_skill_interface", "check_discovery_surface", "check_disclosure_graph", "check_metadata",
+                for name in ("check_skill", "check_skill_interface", "check_discovery_surface", "check_disclosure_graph", "check_metadata", "check_compaction_hooks",
                              "check_release_archive", "check_host_results", "check_corpus_contracts",
                              "check_invocation_results", "check_forward_results", "check_memory_results"):
                     stack.enter_context(mock.patch.object(VALIDATOR, name))
@@ -504,7 +526,7 @@ class ValidatorTests(unittest.TestCase):
                     stack.enter_context(mock.patch.object(VALIDATOR, "SKILL_NAMES", ()))
                     stack.enter_context(mock.patch.object(VALIDATOR, "check_release_archive", return_value=binding))
                     for name in ("check_skill", "check_skill_interface", "check_discovery_surface", "check_disclosure_graph", "check_portable_markdown_paths",
-                                 "check_metadata", "check_corpus_contracts", "check_invocation_results", "check_forward_results", "check_memory_results",
+                                 "check_metadata", "check_compaction_hooks", "check_corpus_contracts", "check_invocation_results", "check_forward_results", "check_memory_results",
                                  "check_markdown_links"):
                         stack.enter_context(mock.patch.object(VALIDATOR, name))
                     stack.enter_context(redirect_stderr(error))
