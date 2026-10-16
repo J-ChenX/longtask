@@ -44,6 +44,8 @@ CONTRACT_INPUTS = (
     "references/新项目设计.md",
     "scripts/longtask_state.py",
     "scripts/longtask_hooks.py",
+    "scripts/codex_sessions.py",
+    "tests/test_codex_sessions.py",
     "hooks/hooks.json",
     "tests/test_longtask_hooks.py",
     "scripts/knowledge_context.py",

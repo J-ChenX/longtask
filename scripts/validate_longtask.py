@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_VERSION = "4.2.0"
+SKILL_VERSION = "4.3.0"
 SKILL_NAMES = ("longtask",)
 MODE_REFERENCES = (
     "references/新建项目.md", "references/既有项目接入.md", "references/任务续接.md",
@@ -42,6 +42,9 @@ REQUIRED_FILES = (
     "scripts/build_release.py",
     "scripts/longtask_state.py",
     "scripts/longtask_hooks.py",
+    "scripts/precompact_guard.py",
+    "scripts/codex_sessions.py",
+    "tests/test_codex_sessions.py",
     "hooks/hooks.json",
     "tests/test_longtask_hooks.py",
     "scripts/run_skill_evals.py",
@@ -1318,17 +1321,17 @@ def check_version_sync(errors: list[str]) -> None:
         return
     if version != SKILL_VERSION:
         fail(errors, "validator version differs from the release target")
-    for relative in ("scripts/longtask_state.py", "scripts/validate_longtask.py"):
-        try:
-            tree = ast.parse(read_text(ROOT / relative), filename=relative)
-            declarations = [node.value for node in tree.body if isinstance(node, ast.Assign)
-                            and any(isinstance(target, ast.Name) and target.id == "SKILL_VERSION"
-                                    for target in node.targets)]
-            if (len(declarations) != 1 or not isinstance(declarations[0], ast.Constant)
-                    or declarations[0].value != version):
-                fail(errors, f"{relative} version differs from the release target")
-        except (OSError, SyntaxError, UnicodeError) as exc:
-            fail(errors, f"cannot inspect release version consumer {relative}: {exc}")
+    relative = "scripts/longtask_state.py"
+    try:
+        tree = ast.parse(read_text(ROOT / relative), filename=relative)
+        declarations = [node.value for node in tree.body if isinstance(node, ast.Assign)
+                        and any(isinstance(target, ast.Name) and target.id == "SKILL_VERSION"
+                                for target in node.targets)]
+        if (len(declarations) != 1 or not isinstance(declarations[0], ast.Constant)
+                or declarations[0].value != version):
+            fail(errors, f"{relative} version differs from the release target")
+    except (OSError, SyntaxError, UnicodeError) as exc:
+        fail(errors, f"cannot inspect release version consumer {relative}: {exc}")
     try:
         sections = re.findall(r"^## ([^\n]+)(?:\n|\Z)(.*?)(?=^## |\Z)",
                               read_text(ROOT / "版本说明.md"), flags=re.MULTILINE | re.DOTALL)

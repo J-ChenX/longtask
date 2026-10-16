@@ -1287,6 +1287,17 @@ class LongtaskStateTests(unittest.TestCase):
                                  "--result", "pass", "--details", frozen, actor="reviewer", ok=False)
         self.assertIn("review envelope task_id", rejected["error"])
 
+    def test_documented_complete_review_envelope_is_accepted_by_cli(self) -> None:
+        state = self.init("review")
+        document = (PROJECT / "专家审查协议.md").read_text()
+        details = json.loads(document.split("```json\n", 1)[1].split("\n```", 1)[0])
+        details.update({key: state[key] for key in ("task_id", "evidence_epoch", "head_commit")})
+        details.update(reviewer="reviewer", covered_package_ids=[],
+                       base_revision=state["artifact_digest"], artifact_digest=state["artifact_digest"])
+        accepted = self.mutation(state, "evidence", "--kind", "review", "--summary", "documented envelope",
+                                 "--result", "pass", "--details", json.dumps(details), actor="reviewer")
+        self.assertEqual(accepted["validation_evidence"][-1]["details"]["findings"][0]["reproducible"], True)
+
     def test_review_envelope_binding_fields_are_structurally_required(self) -> None:
         state = self.init("review")
         details = json.loads(self.review_details(state["artifact_digest"]))
@@ -1551,6 +1562,62 @@ class LongtaskStateTests(unittest.TestCase):
         self.assertIn("passing evidence", rejected["error"])
         state = self.complete_package(state, consumer)
         self.assertTrue(self.run_cli("validate", "--root", str(self.root))["valid"])
+
+    def test_dependency_block_does_not_freeze_a_never_executed_consumer_base(self) -> None:
+        state = self.init("continue")
+        dependency = self.package("dependency", status="active", base_revision=state["artifact_digest"],
+                                  owner="worker", lease_expires=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat())
+        consumer = self.package("consumer", dependencies=["dependency"], base_revision=state["artifact_digest"])
+        state = self.mutation(state, "package", "--data", json.dumps(dependency))
+        state = self.mutation(state, "package", "--data", json.dumps(consumer))
+        state = self.mutation(state, "evidence", "--kind", "test", "--summary", "dependency regression",
+                              "--result", "fail", "--check-id", "test dependency", "--package-id", "dependency")
+        self.assertEqual(state["work_packages"][1]["status"], "blocked")
+        self.assertNotIn("baseline_manifest", state["work_packages"][1])
+        (self.root / "dependency.py").write_text("fixed dependency\n")
+        state = self.mutation(state, "package", "--data", json.dumps(dependency))
+        state = self.complete_package(state, dependency)
+        consumer.update(status="active", base_revision=state["artifact_digest"], owner="worker",
+                        lease_expires=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat())
+        epoch = state["evidence_epoch"]
+        state = self.mutation(state, "package", "--data", json.dumps(consumer))
+        observed = state["work_packages"][1]
+        self.assertEqual(observed["status"], "active")
+        self.assertEqual(observed["baseline_manifest"]["artifact_digest"], consumer["base_revision"])
+        self.assertEqual(state["evidence_epoch"], epoch)
+        self.assertNotIn("dependency_failed", observed)
+        self.assertEqual(observed.get("evidence", []), [])
+
+    def test_executed_dependency_block_cannot_rebase(self) -> None:
+        state = self.init("continue")
+        dependency = self.package("dependency", status="active", base_revision=state["artifact_digest"],
+                                  owner="worker", lease_expires=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat())
+        state = self.mutation(state, "package", "--data", json.dumps(dependency))
+        state = self.complete_package(state, dependency)
+        consumer = self.package("consumer", status="active", dependencies=["dependency"],
+                                base_revision=state["artifact_digest"], owner="worker",
+                                lease_expires=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat())
+        state = self.mutation(state, "package", "--data", json.dumps(consumer))
+        state = self.mutation(state, "evidence", "--kind", "test", "--summary", "upstream failure",
+                              "--result", "fail", "--check-id", "test dependency", "--package-id", "dependency")
+        self.assertTrue(state["work_packages"][1].get("baseline_manifest"))
+        (self.root / "consumer.py").write_text("already executed change\n")
+        current = STATE.artifact_digest(self.root)
+        rejected = self.mutation(state, "package", "--data", json.dumps(dict(consumer, base_revision=current)), ok=False)
+        self.assertIn("immutable", rejected["error"])
+
+    def test_rebase_dependency_block_does_not_bypass_unmet_dependency(self) -> None:
+        state = self.init("continue")
+        dependency = self.package("dependency", base_revision=state["artifact_digest"])
+        consumer = self.package("consumer", dependencies=["dependency"], base_revision=state["artifact_digest"])
+        state = self.mutation(state, "package", "--data", json.dumps(dependency))
+        state = self.mutation(state, "package", "--data", json.dumps(consumer))
+        state = self.mutation(state, "package", "--data", json.dumps(dict(dependency, status="failed")))
+        (self.root / "dependency.py").write_text("not yet verified\n")
+        ready = dict(consumer, status="ready", base_revision=STATE.artifact_digest(self.root))
+        rejected = self.mutation(state, "package", "--data", json.dumps(ready), ok=False)
+        self.assertIn("depend", rejected["error"])
+        self.assertEqual(self.run_cli("context", "--root", str(self.root))["binding"]["revision"], state["revision"])
 
     def test_acceptance_boundary_is_runtime_owned_and_validated(self) -> None:
         state = self.init("continue")
@@ -1960,7 +2027,7 @@ class LongtaskStateTests(unittest.TestCase):
     def test_old_skill_state_is_rejected_without_compatibility_reading(self) -> None:
         state = self.init("setup")
         self.assertEqual(state["schema_version"], 3)
-        self.assertEqual(state["skill_version"], "4.2.0")
+        self.assertEqual(state["skill_version"], "4.3.0")
         path = self.root / ".longtask" / "state.json"
         for version in ("1.0.0", "2.0.0", "3.0.0", "4.0.0", "4.1.0"):
             with self.subTest(version=version):

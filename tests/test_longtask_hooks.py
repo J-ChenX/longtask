@@ -19,6 +19,38 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class LongtaskHookTests(unittest.TestCase):
+    def invoke_guard(self, raw):
+        result = subprocess.run([sys.executable, str(ROOT / 'scripts/precompact_guard.py')],
+                                input=raw, capture_output=True, timeout=2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertLess(len(result.stdout), 2048)
+        return json.loads(result.stdout)
+
+    def test_veto_without_checkpoint_or_dispatch_for_both_triggers(self):
+        for trigger in ('auto', 'manual'):
+            result = self.invoke_guard(json.dumps({'hook_event_name': 'PreCompact', 'trigger': trigger,
+                                           'cwd': '/nonexistent', 'session_id': 'UNTRUSTED'}).encode())
+            self.assertIs(result['continue'], False)
+            self.assertIn('stopReason', result)
+            self.assertNotIn('UNTRUSTED', json.dumps(result))
+            self.assertNotIn('hookSpecificOutput', result)
+
+    def test_invalid_or_oversized_input_preserves_veto(self):
+        for raw in (b'{', b'[]', b'{}', b'', b' ' * 65537):
+            self.assertIs(self.invoke_guard(raw)['continue'], False)
+
+    def test_open_stdin_does_not_delay_synchronous_veto(self):
+        with subprocess.Popen([sys.executable, str(ROOT / 'scripts/precompact_guard.py')],
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+            process.stdin.write(b'{"hook_event_name":"PreCompact","trigger":"auto"}\n')
+            process.stdin.flush()
+            try:
+                self.assertEqual(process.wait(timeout=2), 0)
+                self.assertIs(json.loads(process.stdout.read())['continue'], False)
+            finally:
+                if process.poll() is None:
+                    process.kill()
+
     setUp = fixtures.LongtaskStateTests.setUp
     tearDown = fixtures.LongtaskStateTests.tearDown
     init = fixtures.LongtaskStateTests.init

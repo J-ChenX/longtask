@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = 3
-SKILL_VERSION = "4.2.0"
+SKILL_VERSION = "4.3.0"
 TASK_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 ACTOR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -2235,6 +2235,16 @@ def cmd_package(args: argparse.Namespace) -> dict[str, Any]:
         packages = state["work_packages"]
         existing_package = next((item for item in packages if item.get("id") == package_id), None)
         started = isinstance(existing_package, dict) and isinstance(existing_package.get("baseline_manifest"), dict)
+        # 依赖失败传播不等于执行过该包；仅允许无执行快照、无验收历史且无其他漂移的消费者重新选基线。
+        unstarted_dependency_block = (
+            isinstance(existing_package, dict)
+            and existing_package.get("status") == "blocked"
+            and existing_package.get("dependency_failed") is True
+            and not started
+            and not existing_package.get("evidence")
+            and not any(existing_package.get(flag) for flag in
+                        ("scope_drift", "stale_base", "lease_expired", "settlement_manifest", "execution_group"))
+        )
         if package_status in ("ready", "active") and not started and package.get("base_revision") != current_digest:
             raise StateError("ready/active package base_revision must match the current artifact digest")
         if started and package.get("status") != "superseded" and package.get("write_set") != existing_package.get("write_set"):
@@ -2242,6 +2252,7 @@ def cmd_package(args: argparse.Namespace) -> dict[str, Any]:
         if (
             isinstance(existing_package, dict)
             and existing_package.get("status") in {"ready", "active", "blocked", "failed", "complete"}
+            and not unstarted_dependency_block
             and package.get("base_revision") != existing_package.get("base_revision")
         ):
             raise StateError("work-package base_revision is immutable after work starts")

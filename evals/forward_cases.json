@@ -191,6 +191,8 @@
       "id": "precompact_readonly_continue",
       "test": "test_precompact_detects_without_stopping_or_writing",
       "suite": "tests.test_longtask_hooks.LongtaskHookTests"
-    }
+    },
+    {"id": "optional_precompact_veto", "test": "test_veto_without_checkpoint_or_dispatch_for_both_triggers", "suite": "tests.test_longtask_hooks.LongtaskHookTests"},
+    {"id": "precompact_veto_bad_input", "test": "test_invalid_or_oversized_input_preserves_veto", "suite": "tests.test_longtask_hooks.LongtaskHookTests"}
   ]
 }
