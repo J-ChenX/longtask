@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_VERSION = "4.3.0"
+SKILL_VERSION = "4.5.0"
 SKILL_NAMES = ("longtask",)
 MODE_REFERENCES = (
     "references/新建项目.md", "references/既有项目接入.md", "references/任务续接.md",
@@ -44,6 +44,8 @@ REQUIRED_FILES = (
     "scripts/longtask_hooks.py",
     "scripts/precompact_guard.py",
     "scripts/codex_sessions.py",
+    "scripts/session_permissions.py",
+    "tests/test_session_permissions.py",
     "tests/test_codex_sessions.py",
     "hooks/hooks.json",
     "tests/test_longtask_hooks.py",
@@ -1377,8 +1379,10 @@ def check_metadata(errors: list[str]) -> None:
         properties = schema.get("properties")
         schema_version = properties.get("schema_version", {}) if isinstance(properties, dict) else {}
         skill_version = properties.get("skill_version", {}) if isinstance(properties, dict) else {}
-        if schema_version.get("const") != 3 or skill_version.get("const") != SKILL_VERSION:
-            fail(errors, "state schema version constants do not match runtime v3")
+        version_pattern = rf"^{re.escape(SKILL_VERSION.split('.')[0])}\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?![\s\S])"
+        version_contract = {key: value for key, value in skill_version.items() if key != "description"} if isinstance(skill_version, dict) else None
+        if schema_version.get("const") != 3 or version_contract != {"type": "string", "pattern": version_pattern}:
+            fail(errors, "state schema version compatibility does not match runtime v3")
         expected_required_state_keys = {
             "schema_version", "skill_version", "task_id", "mode", "approval_policy", "phase", "status",
             "revision", "event_revision", "evidence_epoch", "goal", "base_commit", "head_commit", "artifact_digest", "approved_digest",

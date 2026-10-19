@@ -112,6 +112,30 @@ class LongtaskHookTests(unittest.TestCase):
         self.assertEqual(before, self.inventory())
         self.invoke(json.dumps(self.event()).encode())
 
+    def test_compact_locates_compatible_minor_checkpoint_without_mutation(self):
+        state = self.init()
+        state['skill_version'] = hooks.runtime.SKILL_VERSION.split('.')[0] + '.2.0'
+        (self.root / '.longtask/state.json').write_text(json.dumps(state))
+        before = self.inventory()
+        result = self.invoke(json.dumps(self.event()).encode())
+        context = result['hookSpecificOutput']['additionalContext']
+        self.assertIn(state['task_id'], context)
+        self.assertNotIn('checkpoint_unavailable_or_unsafe', context)
+        self.assertEqual(before, self.inventory())
+
+    def test_large_valid_checkpoint_keeps_bounded_locator_without_copying_payload(self):
+        state = self.init()
+        state['next_action'] = 'UNTRUSTED_LARGE_PAYLOAD' + 'x' * (5 * 1024 * 1024)
+        path = self.root / '.longtask/state.json'
+        raw = json.dumps(state).encode()
+        path.write_bytes(raw)
+        result = self.invoke(json.dumps(self.event()).encode())
+        context = result['hookSpecificOutput']['additionalContext']
+        self.assertIn(state['task_id'], context)
+        self.assertNotIn('checkpoint_unavailable_or_unsafe', context)
+        self.assertNotIn('UNTRUSTED_LARGE_PAYLOAD', context)
+        self.assertEqual(path.read_bytes(), raw)
+
     def test_commit_locator_cannot_carry_checkpoint_prose(self):
         self.init()
         path = self.root / '.longtask/state.json'

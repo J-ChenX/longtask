@@ -1,10 +1,10 @@
 ---
 name: longtask
-description: 编排需跨上下文恢复或协调独立验收包的编码任务；小改动、解释和普通审查不启用。
+description: 编排跨上下文或独立验收包的编码任务，在授权内分工多窗口并递进交接；小改动、解释和普通审查不启用。
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
-  version: "4.3.0"
+  version: "4.5.0"
 ---
 
 # 长任务编排
@@ -21,7 +21,7 @@ python3 {skill-root}/scripts/longtask_state.py context --root {workspace-root} -
 
 已知工作包可直接取详情，概览不能作为执行依据。恢复动作已由请求或有效授权明确时，首次查询带 `--resume-choice resume|review|inspect`；详情中 `recovery.selection_available=true` 才采用该动作。输入、诊断及异常的消费见[续接参考](references/任务续接.md#恢复决策)，不重复查询同一结论。
 
-交接过期或阶段冲突时，先消费已有诊断；缺少定位依据才运行 `doctor --root {workspace-root} --output summary`。只接受当前 v3 状态和结构化 `handoff`，不执行旧帧，不读取或迁移其他技能版本的检查点，也不从旧/无效状态继承批准、审查或完成声明。
+交接过期或阶段冲突时，先消费已有诊断；缺少定位依据才运行 `doctor --root {workspace-root} --output summary`。接受结构有效且同一大版本的 v3 检查点和结构化 `handoff`，具体兼容及证据边界见[当前版本边界](references/状态协议.md#当前版本边界)。不执行过期帧，不从不兼容或无效状态继承批准、审查或完成声明。
 
 ## 模式参考
 
@@ -37,7 +37,7 @@ python3 {skill-root}/scripts/longtask_state.py context --root {workspace-root} -
 
 明确意图优先于状态建议；只规划、只查看、只审查约束所有模式，不扩大已有授权。有无架构文件只是定位线索，要核对内容是否足以支持当前目标。文档与代码冲突时先确认批准合同：偏离合同用 continue 修复，改变合同用 modify；依据不足时定向补齐或澄清，不自动用代码改写意图。
 
-模式可随工作推进切换；有活动检查点时在原任务中协调，不重新 init 或手改 mode 绕过恢复与阶段门。CLI 的 `route.entry` 是工作流建议，不是公开技能名称或授权。旧/无效状态、过期交接或冲突先按诊断协调，不能借模式选择继承批准或重建状态。`complete` 必须满足当前版本完成不变量，`error` 不能猜测成有效状态。
+模式可随工作推进切换；有活动检查点时在原任务中协调，不重新 init 或手改 mode 绕过恢复与阶段门。CLI 的 `route.entry` 是工作流建议，不是公开技能名称或授权。不兼容或无效状态、过期交接或冲突先按诊断协调，不能借模式选择继承批准或重建状态。`complete` 必须满足当前版本完成不变量，`error` 不能猜测成有效状态。
 
 ## 事实与授权
 
@@ -61,7 +61,7 @@ python3 {skill-root}/scripts/longtask_state.py context --root {workspace-root} -
 
 ## 并行协作
 
-实际拆分、创建窗口、消费跨任务合同或接线时查[平行任务协作](references/平行任务协作.md)。并发写入使用隔离工作树和不重叠写集，共享资源各有唯一写入者；无法隔离则顺序写入。宿主能力、子智能体边界或降级影响执行时查[平台适配器](references/平台适配器.md)。状态工具只提供合作式一致性，不认证 actor 或真实人类批准。
+首次拆分多个独立验收包或用户要求多窗口时，加载[执行方式选择](references/平行任务协作.md#首次分工与执行方式)，明确实际窗口、当前片段和接续授权；具备条件就派发，缺条件就说明具体缺口。内部子智能体不能替代用户要求的独立窗口。实际创建、消费跨任务合同或接线沿用该参考；并发写入使用隔离工作树和不重叠写集，共享资源各有唯一写入者。宿主能力或降级影响执行时查[平台适配器](references/平台适配器.md)。状态工具只提供合作式一致性，不认证 actor 或真实人类批准。
 
 ## 变更与完成
 

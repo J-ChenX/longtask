@@ -75,6 +75,31 @@
       "suite": "tests.test_longtask_state.LongtaskStateTests"
     },
     {
+      "id": "same_major_checkpoint_queries",
+      "test": "test_same_major_skill_versions_are_readable_without_rewriting_state",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
+    },
+    {
+      "id": "cross_major_checkpoint_rejection",
+      "test": "test_other_major_and_malformed_skill_versions_fail_without_mutation",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
+    },
+    {
+      "id": "compatible_checkpoint_cas_and_replacement",
+      "test": "test_compatible_checkpoint_mutations_preserve_origin_version_and_cas",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
+    },
+    {
+      "id": "compatible_checkpoint_evidence_binding",
+      "test": "test_compatible_upgrade_preserves_valid_evidence_but_not_stale_completion",
+      "suite": "tests.test_longtask_state.LongtaskStateTests"
+    },
+    {
+      "id": "compatible_checkpoint_compaction_bridge",
+      "test": "test_compact_locates_compatible_minor_checkpoint_without_mutation",
+      "suite": "tests.test_longtask_hooks.LongtaskHookTests"
+    },
+    {
       "id": "noncurrent_schema_rejection",
       "test": "test_legacy_schema_is_rejected_without_a_migration_command",
       "suite": "tests.test_longtask_state.LongtaskStateTests"
@@ -192,7 +217,75 @@
       "test": "test_precompact_detects_without_stopping_or_writing",
       "suite": "tests.test_longtask_hooks.LongtaskHookTests"
     },
-    {"id": "optional_precompact_veto", "test": "test_veto_without_checkpoint_or_dispatch_for_both_triggers", "suite": "tests.test_longtask_hooks.LongtaskHookTests"},
-    {"id": "precompact_veto_bad_input", "test": "test_invalid_or_oversized_input_preserves_veto", "suite": "tests.test_longtask_hooks.LongtaskHookTests"}
+    {
+      "id": "optional_precompact_veto",
+      "test": "test_veto_without_checkpoint_or_dispatch_for_both_triggers",
+      "suite": "tests.test_longtask_hooks.LongtaskHookTests"
+    },
+    {
+      "id": "precompact_veto_bad_input",
+      "test": "test_invalid_or_oversized_input_preserves_veto",
+      "suite": "tests.test_longtask_hooks.LongtaskHookTests"
+    },
+    {
+      "id": "large_checkpoint_compact_locator",
+      "test": "test_large_valid_checkpoint_keeps_bounded_locator_without_copying_payload",
+      "suite": "tests.test_longtask_hooks.LongtaskHookTests"
+    },
+    {
+      "id": "worktree_session_dispatch_binding",
+      "test": "test_opted_in_worktree_dispatch_read_wait_and_root_binding",
+      "suite": "tests.test_codex_sessions.SessionsTests"
+    },
+    {
+      "id": "worktree_session_scope_rejection",
+      "test": "test_worktree_selection_rejects_unregistered_foreign_and_alias_paths",
+      "suite": "tests.test_codex_sessions.SessionsTests"
+    },
+    {
+      "id": "worktree_session_unknown_no_retry",
+      "test": "test_unknown_creation_disables_retry_across_worktrees_and_default_root",
+      "suite": "tests.test_codex_sessions.SessionsTests"
+    },
+    {
+      "id": "parent_permissions_verified_before_dispatch",
+      "test": "test_bound_creation_uses_verified_permissions_before_naming_or_dispatch",
+      "suite": "tests.test_codex_sessions.SessionsTests"
+    },
+    {
+      "id": "parent_permissions_mismatch_stops_dispatch",
+      "test": "test_missing_or_different_created_permissions_never_dispatch_and_block_global_retry",
+      "suite": "tests.test_codex_sessions.SessionsTests"
+    },
+    {
+      "id": "source_snapshot_latest_no_fallback",
+      "test": "test_unknown_or_restricted_latest_never_falls_back",
+      "suite": "tests.test_session_permissions.SourceSnapshotTests"
+    },
+    {
+      "id": "source_snapshot_authorization_budget",
+      "test": "test_user_text_only_and_count_and_unicode_budget",
+      "suite": "tests.test_session_permissions.SourceSnapshotTests"
+    },
+    {
+      "id": "coordination_direct_steer_or_start",
+      "test": "test_direct_message_steers_active_turn_and_starts_idle_turn_without_queue",
+      "suite": "tests.test_codex_sessions.SessionsTests"
+    },
+    {
+      "id": "coordination_unknown_no_replay",
+      "test": "test_unconfirmed_message_is_never_retried_or_delivered_by_fallback",
+      "suite": "tests.test_codex_sessions.SessionsTests"
+    },
+    {
+      "id": "bound_authorization_no_source_override",
+      "test": "test_authorization_is_bound_no_argument_read_and_excludes_permission_or_other_history",
+      "suite": "tests.test_codex_sessions.SessionsTests"
+    },
+    {
+      "id": "unknown_creation_message_cross_entry_quarantine",
+      "test": "test_unknown_initial_turn_cannot_be_replayed_through_message_tool",
+      "suite": "tests.test_codex_sessions.SessionsTests"
+    }
   ]
 }

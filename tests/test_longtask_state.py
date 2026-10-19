@@ -2024,20 +2024,82 @@ class LongtaskStateTests(unittest.TestCase):
         self.assertNotEqual(help_result.returncode, 0)
         self.assertIn("invalid choice", help_result.stderr)
 
-    def test_old_skill_state_is_rejected_without_compatibility_reading(self) -> None:
+    def test_same_major_skill_versions_are_readable_without_rewriting_state(self) -> None:
         state = self.init("setup")
         self.assertEqual(state["schema_version"], 3)
-        self.assertEqual(state["skill_version"], "4.3.0")
+        self.assertEqual(state["skill_version"], STATE.SKILL_VERSION)
         path = self.root / ".longtask" / "state.json"
-        for version in ("1.0.0", "2.0.0", "3.0.0", "4.0.0", "4.1.0"):
+        major = STATE.SKILL_VERSION.split(".")[0]
+        for version in (f"{major}.0.0", f"{major}.1.0", f"{major}.2.0", f"{major}.3.0", STATE.SKILL_VERSION, f"{major}.99.99"):
             with self.subTest(version=version):
                 state["skill_version"] = version
                 path.write_text(json.dumps(state), encoding="utf-8")
-                before = path.read_bytes()
+                before = {p.name: p.read_bytes() for p in path.parent.iterdir()}
+                self.assertEqual(self.route("resume")["entry"], "continue")
+                view = self.run_cli("context", "--root", str(self.root), "--view", "overview", "--resume-choice", "inspect")
+                self.assertTrue(view["current_task"])
+                self.assertTrue(self.run_cli("validate", "--root", str(self.root))["valid"])
+                self.assertNotIn("invalid_state", [item["code"] for item in self.run_cli("doctor", "--root", str(self.root))["issues"]])
+                self.assertEqual({p.name: p.read_bytes() for p in path.parent.iterdir()}, before)
+
+    def test_other_major_and_malformed_skill_versions_fail_without_mutation(self) -> None:
+        state = self.init("setup")
+        path = self.root / ".longtask" / "state.json"
+        major = STATE.SKILL_VERSION.split(".")[0]
+        for version in ("1.0.0", "2.0.0", "3.0.0", "5.0.0", f"{major}0.0.0", None, 4, [], {},
+                        f"{major}.2", f"0{major}.2.0", f"{major}.02.0", f"{major}.2.00", f"v{major}.2.0",
+                        f"{major}.2.0-rc.1", f"{major}.2.0+build", f"{major}.2.0\n", f"{major}.２.0"):
+            with self.subTest(version=version):
+                state["skill_version"] = version
+                path.write_text(json.dumps(state), encoding="utf-8")
+                before = {p.name: p.read_bytes() for p in path.parent.iterdir()}
                 routed = self.route()
                 self.assertEqual(routed["entry"], "error")
                 self.assertIn(f"unsupported skill_version: {version!r}", routed["reason"])
-                self.assertEqual(path.read_bytes(), before)
+                rejected = self.mutation(state, "checkpoint", ok=False)
+                self.assertIn("unsupported skill_version", rejected["error"])
+                self.assertEqual({p.name: p.read_bytes() for p in path.parent.iterdir()}, before)
+
+    def test_compatible_checkpoint_mutations_preserve_origin_version_and_cas(self) -> None:
+        state = self.init()
+        state["skill_version"] = STATE.SKILL_VERSION.split(".")[0] + ".2.0"
+        path = self.root / ".longtask/state.json"
+        path.write_text(json.dumps(state), encoding="utf-8")
+        updated = self.mutation(state, "checkpoint")
+        self.assertEqual(updated["skill_version"], state["skill_version"])
+        self.assertEqual(updated["task_id"], state["task_id"])
+        self.assertEqual(updated["revision"], state["revision"] + 1)
+        self.assertEqual(updated["evidence_epoch"], state["evidence_epoch"])
+        rejected = self.mutation(state, "checkpoint", ok=False)
+        self.assertIn("stale revision", rejected["error"])
+        (self.root / "source.py").write_text("changed product\n")
+        args = ("init", "--root", str(self.root), "--mode", "continue", "--goal", "replacement",
+                "--replace-active", "--expected-task-id", updated["task_id"], "--expected-revision", str(updated["revision"]),
+                "--expected-artifact-digest", updated["artifact_digest"])
+        before = {p.name: p.read_bytes() for p in path.parent.iterdir()}
+        rejected = self.run_cli(*args, ok=False)
+        self.assertIn("checkpoint and reconcile it first", rejected["error"])
+        self.assertEqual({p.name: p.read_bytes() for p in path.parent.iterdir()}, before)
+        reconciled = self.mutation(updated, "checkpoint")
+        self.assertEqual(reconciled["skill_version"], state["skill_version"])
+        self.assertNotEqual(reconciled["artifact_digest"], updated["artifact_digest"])
+
+    def test_compatible_upgrade_preserves_valid_evidence_but_not_stale_completion(self) -> None:
+        state = self.complete_review_checkpoint()
+        state["skill_version"] = STATE.SKILL_VERSION.split(".")[0] + ".2.0"
+        path = self.root / ".longtask/state.json"
+        path.write_text(json.dumps(state), encoding="utf-8")
+        self.assertEqual(self.route()["entry"], "complete")
+        updated = self.mutation(state, "checkpoint")
+        self.assertEqual(updated["skill_version"], state["skill_version"])
+        self.assertEqual(updated["approval"], state["approval"])
+        self.assertEqual(updated["review"], state["review"])
+        self.assertEqual(updated["validation_evidence"], state["validation_evidence"])
+        (self.root / "docs/ARCHITECTURE.md").write_text("# Changed project content\n")
+        rejected = self.mutation(updated, "finish", ok=False)
+        self.assertIn("workspace changed", rejected["error"])
+        (self.root / "docs/ARCHITECTURE.md").write_text("# Current project content\n")
+        self.assertTrue(self.mutation(updated, "finish")["finished"])
 
     def test_runtime_validates_evidence_on_noncomplete_packages(self) -> None:
         state = self.init("setup")

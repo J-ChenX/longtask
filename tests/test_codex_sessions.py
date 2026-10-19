@@ -5,6 +5,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -12,10 +13,12 @@ import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
 SPEC = importlib.util.spec_from_file_location("codex_sessions", ROOT / "scripts/codex_sessions.py")
 SESSION = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SESSION)
 IDENTITY = "11111111-1111-4111-8111-111111111111"
+SOURCE_ID = "22222222-2222-4222-8222-222222222222"
 
 # 仅合成原生协议夹具；不访问真实 daemon、用户对话、网络或模型。
 FIXTURE = '''#!{python}
@@ -25,6 +28,8 @@ assert sys.argv[1:] == ['app-server', 'proxy']
 root=Path.cwd()
 mode=(root/'mode').read_text() if (root/'mode').exists() else ''
 identity='11111111-1111-4111-8111-111111111111'
+source_id='22222222-2222-4222-8222-222222222222'
+thread_cwd=str(root)
 import base64,hashlib,struct
 source=sys.stdin.buffer
 header=b''
@@ -59,20 +64,33 @@ while True:
  if 'id' not in m: continue
  if method == 'thread/start' and mode=='lost-create': sys.exit(0)
  if method == 'turn/start' and mode=='lost-turn': sys.exit(0)
+ if method == 'turn/steer' and mode=='active-lost-steer': sys.exit(0)
  if mode=='no-daemon': sys.exit(0)
  if method=='initialize': result={{'serverInfo':{{'version':'fixture'}}}}
- elif method=='thread/start': result={{'thread':{{'id':identity,'cwd':str(root)}}}}
+ elif method=='thread/start':
+  thread_cwd=m['params']['cwd']
+  permissions={{'approvalPolicy':'on-request','approvalsReviewer':'user',
+   'sandbox':{{'type':'dangerFullAccess'}},'activePermissionProfile':{{'id':':danger-full-access'}}}}
+  if (root/'permissions').exists():permissions=json.loads((root/'permissions').read_text())
+  result={{'thread':{{'id':identity,'cwd':thread_cwd}},**permissions}}
  elif method=='thread/name/set': result={{}}
  elif method=='turn/start': result={{'turn':{{'id':'turn-fixture','status':'inProgress'}}}}
+ elif method=='turn/steer': result={{'turnId':'wrong-turn' if mode=='active-wrong-steer' else 'turn-fixture'}}
  elif method=='thread/read':
-  result={{'thread':{{'id':identity,'cwd':'/outside' if mode=='outside' else str(root),
-   'status':{{'type':'idle'}},'turns':[{{'id':'turn-fixture','status':'completed',
+  read_cwd=str(root) if m['params']['threadId']==source_id else thread_cwd
+  result={{'thread':{{'id':m['params']['threadId'],'cwd':'/outside' if mode=='outside' else read_cwd,
+   'path':str(root/'synthetic-source.jsonl'),
+   'status':{{'type':'active' if mode.startswith('active') else 'idle'}},
+   'turns':[{{'id':'turn-fixture','status':'inProgress' if mode.startswith('active') or mode=='inconsistent' else 'completed',
    'items':[{{'type':'userMessage','text':'PRIVATE USER'}},
     {{'type':'commandExecution','text':'PRIVATE TOOL'}},
     {{'type':'agentMessage','text':'baseline checked; implementing next slice'}}]}}]
     if m['params']['includeTurns'] else []}}}}
  else: result={{}}
- data=json.dumps({{'id':m['id'],'result':result}}).encode()
+ response={{'id':m['id'],'result':result}}
+ if method=='turn/steer' and mode=='active-rejected-steer':
+  response={{'id':m['id'],'error':{{'code':-1,'message':'synthetic stale turn'}}}}
+ data=json.dumps(response).encode()
  if mode=='fragmented':
   frame(b'ping',9);frame(data[:len(data)//2],1,False);frame(data[len(data)//2:],0)
  else:frame(data)
@@ -97,11 +115,50 @@ class SessionsTests(unittest.TestCase):
         path = self.root / "rpc-log"
         return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
 
+    def bound_sessions(self, **kwargs):
+        return SESSION.Sessions(self.root, self.proxy, permission_source_thread=SOURCE_ID, **kwargs)
+
+    def permission_snapshot(self):
+        return {"start": {"approvalPolicy": "on-request", "approvalsReviewer": "user",
+                          "permissions": ":danger-full-access"},
+                "expected": {"approvalPolicy": "on-request", "approvalsReviewer": "user",
+                             "sandbox": {"type": "dangerFullAccess"},
+                             "activePermissionProfile": {"id": ":danger-full-access"}},
+                "sourceThreadId": SOURCE_ID, "observation": "host_recorded_snapshot"}
+
+    def git(self, *args, cwd=None):
+        if shutil.which("git") is None:
+            self.skipTest("Git worktree contract")
+        return subprocess.run(["git", "-C", str(cwd or self.root), *args],
+                              check=True, capture_output=True, text=True, timeout=5)
+
+    def worktree(self):
+        self.git("init", "-q")
+        self.git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                 "commit", "-q", "--allow-empty", "-m", "fixture")
+        target = self.root / "linked worktree"
+        self.git("worktree", "add", "-q", "--detach", str(target), "HEAD")
+        return target
+
+    def assert_workspace_rejected_before_rpc(self, sessions, workspace):
+        for name, args in [
+            ("create_thread", {"prompt": "fixture", "title": "fixture"}),
+            ("read_thread", {"threadId": IDENTITY}),
+            ("wait_threads", {"threadIds": [IDENTITY], "timeoutMs": 0}),
+            ("send_message_to_thread", {"threadId": IDENTITY, "message": "fixture"}),
+        ]:
+            with self.subTest(name=name, workspace=workspace), self.assertRaises(SESSION.AdapterError):
+                sessions.call(name, {**args, "workspace": workspace})
+        self.assertEqual(self.requests(), [])
+        self.assertIsNone(self.proxy.process)
+
     def test_creation_dispatch_snapshot_and_proxy_cleanup(self):
         result = self.sessions.call("create_thread", {"title": "续接夹具", "prompt": "原用户授权见原聊天；核对当前合同继续"})
         self.assertEqual(result["status"], "dispatched")
         self.assertEqual(result["threadId"], IDENTITY)
         self.assertFalse(result["takeoverConfirmed"])
+        self.assertEqual(result["permissionSync"], "host_default_unverified")
+        self.assertIsNone(result["permissionSourceThreadId"])
         messages = self.requests()
         self.assertEqual([m.get("method") for m in messages],
                          ["initialize", "initialized", "thread/start", "thread/name/set", "turn/start"])
@@ -176,6 +233,8 @@ class SessionsTests(unittest.TestCase):
             ("create_thread", {"prompt": "fixture", "title": "bad\x7fname"}),
             ("create_thread", {"prompt": "fixture", "title": "fixture", "cwd": "/outside"}),
             ("create_thread", {"prompt": "fixture", "title": "fixture", "approvalPolicy": "never"}),
+            ("create_thread", {"prompt": "fixture", "title": "fixture", "sourceThreadId": SOURCE_ID}),
+            ("create_thread", {"prompt": "fixture", "title": "fixture", "permissions": ":danger-full-access"}),
             ("read_thread", {"threadId": "../arbitrary"}),
             ("wait_threads", {"threadIds": [IDENTITY], "timeoutMs": True}),
             ("wait_threads", {"threadIds": [IDENTITY] * 2, "timeoutMs": 0}),
@@ -196,6 +255,292 @@ class SessionsTests(unittest.TestCase):
         result = self.sessions.call("wait_threads", {"threadIds": [IDENTITY], "timeoutMs": 0})
         self.assertEqual(result["threads"][0]["turnStatus"], "completed")
 
+    def test_registered_worktree_requires_opt_in_for_all_tools(self):
+        target = self.worktree()
+        self.assert_workspace_rejected_before_rpc(self.sessions, str(target))
+
+    def test_opted_in_worktree_dispatch_read_wait_and_root_binding(self):
+        target = self.worktree()
+        sessions = SESSION.Sessions(self.root, self.proxy, allow_worktrees=True)
+        result = sessions.call("create_thread", {"prompt": "fixture", "title": "fixture",
+                                                  "workspace": str(target)})
+        self.assertEqual(result["status"], "dispatched")
+        self.assertEqual(result["cwd"], str(target))
+        started = next(row for row in self.requests() if row.get("method") == "thread/start")
+        self.assertEqual(started["params"]["cwd"], str(target))
+        snapshot = sessions.call("read_thread", {"threadId": IDENTITY, "workspace": str(target)})
+        self.assertEqual(snapshot["cwd"], str(target))
+        waited = sessions.call("wait_threads", {"threadIds": [IDENTITY], "timeoutMs": 0,
+                                                "workspace": str(target)})
+        self.assertEqual(waited["threads"][0]["cwd"], str(target))
+        sent = sessions.call("send_message_to_thread", {"threadId": IDENTITY, "message": "fixture",
+                                                       "workspace": str(target)})
+        self.assertEqual(sent["cwd"], str(target))
+        self.assertFalse(sent["receivedByModel"])
+        for name, args in [("read_thread", {"threadId": IDENTITY}),
+                           ("wait_threads", {"threadIds": [IDENTITY], "timeoutMs": 0}),
+                           ("send_message_to_thread", {"threadId": IDENTITY, "message": "fixture"})]:
+            before = len(self.requests())
+            with self.subTest(name=name), self.assertRaisesRegex(SESSION.AdapterError, "outside_configured_workspace"):
+                sessions.call(name, args)
+            self.assertEqual(len(self.requests()) - before, 1)
+            self.assertFalse(self.requests()[-1]["params"]["includeTurns"])
+
+    def test_explicit_root_is_supported_without_worktree_opt_in(self):
+        result = self.sessions.call("create_thread", {"prompt": "fixture", "title": "fixture",
+                                                      "workspace": str(self.root)})
+        self.assertEqual(result["cwd"], str(self.root))
+        self.assertEqual(self.sessions.call("read_thread", {"threadId": IDENTITY,
+                                                            "workspace": str(self.root)})["cwd"], str(self.root))
+
+    def test_worktree_selection_rejects_unregistered_foreign_and_alias_paths(self):
+        target = self.worktree()
+        sessions = SESSION.Sessions(self.root, self.proxy, allow_worktrees=True)
+        unregistered = self.root / "unregistered"
+        unregistered.mkdir()
+        foreign = self.root / "foreign"
+        foreign.mkdir()
+        self.git("init", "-q", cwd=foreign)
+        alias = self.root / "linked-alias"
+        alias.symlink_to(target, target_is_directory=True)
+        for workspace in [str(unregistered), str(foreign), "linked worktree", str(alias),
+                          str(self.root / "missing"), "", None, 1]:
+            self.assert_workspace_rejected_before_rpc(sessions, workspace)
+
+    def test_stale_registration_does_not_allow_replaced_worktree_directory(self):
+        target = self.worktree()
+        (target / ".git").unlink()
+        sessions = SESSION.Sessions(self.root, self.proxy, allow_worktrees=True)
+        self.assert_workspace_rejected_before_rpc(sessions, str(target))
+        self.git("init", "-q", cwd=target)
+        self.assert_workspace_rejected_before_rpc(sessions, str(target))
+
+    def test_unknown_creation_disables_retry_across_worktrees_and_default_root(self):
+        target = self.worktree()
+        sessions = SESSION.Sessions(self.root, self.proxy, allow_worktrees=True)
+        (self.root / "mode").write_text("lost-turn")
+        result = sessions.call("create_thread", {"prompt": "fixture", "title": "fixture",
+                                                 "workspace": str(target)})
+        self.assertEqual(result["status"], "unknown")
+        self.assertEqual(result["cwd"], str(target))
+        before = len(self.requests())
+        for workspace in (str(target), str(self.root), None):
+            args = {"prompt": "fixture", "title": "fixture"}
+            if workspace is not None:
+                args["workspace"] = workspace
+            with self.subTest(workspace=workspace), self.assertRaisesRegex(SESSION.AdapterError, "do_not_retry"):
+                sessions.call("create_thread", args)
+        self.assertEqual(len(self.requests()), before)
+
+    def test_bound_creation_uses_verified_permissions_before_naming_or_dispatch(self):
+        sessions = self.bound_sessions()
+        snapshot = self.permission_snapshot()
+        with mock.patch.object(SESSION, "read_source_snapshot", return_value=snapshot) as reader:
+            result = sessions.call("create_thread", {"prompt": "bounded continuation", "title": "fixture"})
+        self.assertEqual(result["status"], "dispatched")
+        self.assertEqual(result["permissionSync"], "verified_host_snapshot")
+        self.assertEqual(result["permissionSourceThreadId"], SOURCE_ID)
+        messages = self.requests()
+        self.assertEqual([m.get("method") for m in messages], ["initialize", "initialized", "thread/read",
+                         "thread/start", "thread/read", "thread/name/set", "turn/start"])
+        self.assertEqual(messages[3]["params"], {"cwd": str(self.root), "ephemeral": False,
+                                                **snapshot["start"]})
+        for row in (messages[2], messages[4]):
+            self.assertEqual(row["params"], {"threadId": SOURCE_ID, "includeTurns": False})
+        self.assertEqual(reader.call_count, 2)
+        reader.assert_called_with(str(self.root / "synthetic-source.jsonl"), SOURCE_ID, self.root,
+                                  include_user_messages=False)
+
+    def test_bound_creation_reads_current_policy_for_each_new_thread(self):
+        sessions = self.bound_sessions()
+        first = self.permission_snapshot()
+        second = self.permission_snapshot()
+        second["start"]["approvalPolicy"] = second["expected"]["approvalPolicy"] = "never"
+        with mock.patch.object(SESSION, "read_source_snapshot", side_effect=[first, first, second, second]):
+            self.assertEqual(sessions.create("first", "first")["status"], "dispatched")
+            (self.root / "permissions").write_text(json.dumps(second["expected"]))
+            self.assertEqual(sessions.create("second", "second")["status"], "dispatched")
+        starts = [row["params"] for row in self.requests() if row.get("method") == "thread/start"]
+        self.assertEqual([row["approvalPolicy"] for row in starts], ["on-request", "never"])
+
+    def test_missing_or_different_created_permissions_never_dispatch_and_block_global_retry(self):
+        snapshot = self.permission_snapshot()
+        variants = []
+        for field in snapshot["expected"]:
+            missing = json.loads(json.dumps(snapshot["expected"]))
+            del missing[field]
+            variants.append(missing)
+        for field, value in [("approvalPolicy", "never"), ("approvalsReviewer", "auto_review"),
+                             ("sandbox", {"type": "workspaceWrite"}),
+                             ("activePermissionProfile", {"id": ":other"}),
+                             ("activePermissionProfile", {"id": ":danger-full-access", "extends": "base"})]:
+            different = {**snapshot["expected"], field: value}
+            variants.append(different)
+        for permissions in variants:
+            with self.subTest(permissions=permissions):
+                sessions = self.bound_sessions()
+                (self.root / "permissions").write_text(json.dumps(permissions))
+                before = len(self.requests())
+                with mock.patch.object(SESSION, "read_source_snapshot", return_value=snapshot):
+                    result = sessions.create("must not dispatch", "fixture")
+                self.assertEqual(result["status"], "unknown")
+                self.assertEqual(result["threadId"], IDENTITY)
+                self.assertEqual(result["stage"], "permissions/verify")
+                self.assertFalse(result["retrySafe"])
+                mutations = [row["method"] for row in self.requests()[before:]
+                             if row.get("method") in {"thread/start", "thread/name/set", "turn/start"}]
+                self.assertEqual(mutations, ["thread/start"])
+                before_retry = len(self.requests())
+                with self.assertRaisesRegex(SESSION.AdapterError, "do_not_retry"):
+                    sessions.create("different prompt", "different title", workspace=str(self.root))
+                with self.assertRaisesRegex(SESSION.AdapterError, "do_not_retry"):
+                    sessions.send(IDENTITY, "must not bypass permission verification")
+                self.assertEqual(len(self.requests()), before_retry)
+
+    def test_unknown_initial_turn_cannot_be_replayed_through_message_tool(self):
+        original_rpc = self.proxy.rpc
+
+        def missing_turn_identity(method, params, *args, **kwargs):
+            if method == "turn/start":
+                return {"turn": {}}
+            return original_rpc(method, params, *args, **kwargs)
+
+        with mock.patch.object(self.proxy, "rpc", side_effect=missing_turn_identity):
+            result = self.sessions.create("possibly already consumed", "fixture")
+        self.assertEqual(result["status"], "unknown")
+        self.assertEqual(result["threadId"], IDENTITY)
+        before = len(self.requests())
+        with self.assertRaisesRegex(SESSION.AdapterError, "do_not_retry"):
+            self.sessions.call("send_message_to_thread", {"threadId": IDENTITY,
+                                                         "message": "possibly already consumed"})
+        self.assertEqual(len(self.requests()), before)
+        self.assertEqual(self.sessions.read(IDENTITY)["threadId"], IDENTITY)
+
+    def test_source_change_or_loss_after_creation_retains_identity_without_dispatch(self):
+        for second in (SESSION.SourceError("permission_source_unavailable"),
+                       {**self.permission_snapshot(), "start": {"approvalPolicy": "never"}},
+                       {**self.permission_snapshot(), "expected": {"approvalPolicy": "never"}}):
+            with self.subTest(second=second):
+                sessions = self.bound_sessions()
+                before = len(self.requests())
+                with mock.patch.object(SESSION, "read_source_snapshot",
+                                       side_effect=[self.permission_snapshot(), second]):
+                    result = sessions.create("must not dispatch", "fixture")
+                self.assertEqual(result["status"], "unknown")
+                self.assertEqual(result["threadId"], IDENTITY)
+                self.assertEqual(result["stage"], "permissions/verify")
+                self.assertFalse(result["retrySafe"])
+                self.assertFalse(any(row.get("method") in {"thread/name/set", "turn/start"}
+                                     for row in self.requests()[before:]))
+                with self.assertRaisesRegex(SESSION.AdapterError, "do_not_retry"):
+                    sessions.create("fixture", "fixture")
+
+    def test_source_metadata_must_match_bound_identity_and_root_before_log_access(self):
+        sessions = self.bound_sessions()
+        valid = {"id": SOURCE_ID, "cwd": str(self.root), "path": "/synthetic-only"}
+        for source in (None, {**valid, "id": IDENTITY}, {**valid, "cwd": "/outside"},
+                       {key: value for key, value in valid.items() if key != "path"}):
+            with self.subTest(source=source), mock.patch.object(self.proxy, "connect"), \
+                    mock.patch.object(self.proxy, "rpc", return_value={"thread": source}) as rpc, \
+                    mock.patch.object(SESSION, "read_source_snapshot") as reader:
+                with self.assertRaisesRegex(SESSION.AdapterError, "permission_source_identity_unavailable"):
+                    sessions.create("fixture", "fixture")
+                reader.assert_not_called()
+                rpc.assert_called_once_with("thread/read", {"threadId": SOURCE_ID, "includeTurns": False})
+
+    def test_unavailable_bound_source_fails_before_any_creation(self):
+        sessions = self.bound_sessions()
+        with mock.patch.object(SESSION, "read_source_snapshot",
+                               side_effect=SESSION.SourceError("permission_source_policy_unsupported")):
+            with self.assertRaisesRegex(SESSION.AdapterError, "permission_source_policy_unsupported"):
+                sessions.create("fixture", "fixture")
+        self.assertFalse(any(row.get("method") == "thread/start" for row in self.requests()))
+        with self.assertRaisesRegex(SESSION.AdapterError, "invalid_thread_id"):
+            SESSION.Sessions(self.root, self.proxy, permission_source_thread="not-a-uuid")
+
+    def test_authorization_is_bound_no_argument_read_and_excludes_permission_or_other_history(self):
+        sessions = self.bound_sessions()
+        source = {**self.permission_snapshot(), "userMessages": ["[truncated]原始用户授权"],
+                  "historyTruncated": True, "assistantText": "PRIVATE ASSISTANT",
+                  "toolText": "PRIVATE TOOL"}
+        with mock.patch.object(SESSION, "read_source_snapshot", return_value=source) as reader:
+            result = sessions.call("read_authorization", {})
+        self.assertEqual(result, {"sourceThreadId": SOURCE_ID, "observation": "host_recorded_snapshot",
+                                  "userMessages": source["userMessages"], "historyTruncated": True})
+        reader.assert_called_once_with(str(self.root / "synthetic-source.jsonl"), SOURCE_ID, self.root,
+                                       include_user_messages=True)
+        before = len(self.requests())
+        for args in ({"threadId": IDENTITY}, {"sourceThreadId": IDENTITY}, {"workspace": str(self.root)},
+                     {"path": "/outside"}):
+            with self.subTest(args=args), self.assertRaises(SESSION.AdapterError):
+                sessions.call("read_authorization", args)
+        with self.assertRaisesRegex(SESSION.AdapterError, "permission_source_not_configured"):
+            self.sessions.call("read_authorization", {})
+        self.assertEqual(len(self.requests()), before)
+
+    def test_direct_message_steers_active_turn_and_starts_idle_turn_without_queue(self):
+        for mode, method, status in (("active", "turn/steer", "steered"), ("", "turn/start", "dispatched")):
+            with self.subTest(mode=mode):
+                # 每个模式使用独立连接，模拟宿主当时的活动状态。
+                proxy = SESSION.Proxy(str(self.codex), self.root)
+                sessions = SESSION.Sessions(self.root, proxy)
+                (self.root / "mode").write_text(mode)
+                before = len(self.requests())
+                try:
+                    result = sessions.call("send_message_to_thread", {"threadId": IDENTITY, "message": "bounded update"})
+                finally:
+                    proxy.close()
+                self.assertEqual(result["status"], status)
+                self.assertFalse(result["receivedByModel"])
+                self.assertEqual(result["turnId"], "turn-fixture")
+                rows = self.requests()[before:]
+                self.assertFalse(any("queue" in row.get("method", "") for row in rows))
+                deliveries = [row for row in rows if row.get("method", "").startswith("turn/")]
+                self.assertEqual(len(deliveries), 1)
+                self.assertEqual(deliveries[0]["method"], method)
+                expected = {"threadId": IDENTITY, "input": [{"type": "text", "text": "bounded update"}]}
+                if mode:
+                    expected["expectedTurnId"] = "turn-fixture"
+                self.assertEqual(deliveries[0]["params"], expected)
+
+    def test_unconfirmed_message_is_never_retried_or_delivered_by_fallback(self):
+        for mode, method in (("active-lost-steer", "turn/steer"), ("active-rejected-steer", "turn/steer"),
+                             ("active-wrong-steer", "turn/steer"), ("lost-turn", "turn/start")):
+            with self.subTest(mode=mode):
+                proxy = SESSION.Proxy(str(self.codex), self.root)
+                sessions = SESSION.Sessions(self.root, proxy)
+                (self.root / "mode").write_text(mode)
+                before = len(self.requests())
+                try:
+                    result = sessions.call("send_message_to_thread", {"threadId": IDENTITY, "message": "once"})
+                    self.assertEqual(result["status"], "unknown")
+                    self.assertEqual(result["stage"], method)
+                    self.assertFalse(result["retrySafe"])
+                    self.assertFalse(result["receivedByModel"])
+                    after = len(self.requests())
+                    with self.assertRaisesRegex(SESSION.AdapterError, "do_not_retry"):
+                        sessions.call("send_message_to_thread", {"threadId": IDENTITY, "message": "different text"})
+                    self.assertEqual(len(self.requests()), after)
+                finally:
+                    proxy.close()
+                deliveries = [row["method"] for row in self.requests()[before:]
+                              if row.get("method", "").startswith("turn/")]
+                self.assertEqual(deliveries, [method])
+                self.assertFalse(any("queue" in row.get("method", "") for row in self.requests()[before:]))
+
+    def test_message_rejects_invalid_input_workspace_and_inconsistent_state_before_delivery(self):
+        for args in ({"threadId": IDENTITY, "message": " "}, {"threadId": IDENTITY, "message": "a" * 6001},
+                     {"threadId": "../other", "message": "fixture"},
+                     {"threadId": IDENTITY, "message": "fixture", "queue": True},
+                     {"threadId": IDENTITY, "message": "fixture", "workspace": "/outside"}):
+            with self.subTest(args=args), self.assertRaises(SESSION.AdapterError):
+                self.sessions.call("send_message_to_thread", args)
+        self.assertEqual(self.requests(), [])
+        (self.root / "mode").write_text("inconsistent")
+        with self.assertRaisesRegex(SESSION.AdapterError, "thread_delivery_state_unknown"):
+            self.sessions.call("send_message_to_thread", {"threadId": IDENTITY, "message": "fixture"})
+        self.assertFalse(any(row.get("method", "").startswith("turn/") for row in self.requests()))
+
     def test_malformed_host_payload_is_bounded_error_and_creation_stays_unknown(self):
         self.proxy.connect()
         for payload in ({"thread": None}, {"thread": {"id": IDENTITY, "cwd": str(self.root),
@@ -210,7 +555,7 @@ class SessionsTests(unittest.TestCase):
 
     def test_wait_expiry_returns_last_snapshot_without_zero_budget_rpc(self):
         row = {"threadId": IDENTITY, "turnStatus": "inProgress"}
-        with mock.patch.object(self.proxy, "connect"), mock.patch.object(self.sessions, "read", return_value=row) as read, mock.patch.object(SESSION.time, "monotonic", side_effect=[0, 0, 0, 0, 0, .01]):
+        with mock.patch.object(self.proxy, "connect"), mock.patch.object(self.sessions, "_read", return_value=row) as read, mock.patch.object(SESSION.time, "monotonic", side_effect=[0, 0, 0, 0, 0, .01]):
             result = self.sessions.call("wait_threads", {"threadIds": [IDENTITY], "timeoutMs": 1})
         self.assertEqual(result["threads"], [row])
         self.assertEqual(read.call_count, 1)
@@ -229,7 +574,18 @@ class SessionsTests(unittest.TestCase):
         rows = [json.loads(line) for line in sink.getvalue().splitlines()]
         self.assertIn("error", rows[0])
         self.assertEqual(rows[1]["result"]["protocolVersion"], "2025-03-26")
-        self.assertEqual([t["name"] for t in rows[2]["result"]["tools"]], ["create_thread", "read_thread", "wait_threads"])
+        self.assertEqual([t["name"] for t in rows[2]["result"]["tools"]],
+                         ["create_thread", "read_thread", "wait_threads", "send_message_to_thread", "read_authorization"])
+        for tool in rows[2]["result"]["tools"]:
+            self.assertFalse(tool["inputSchema"]["additionalProperties"])
+            if tool["name"] == "read_authorization":
+                self.assertEqual(tool["inputSchema"]["properties"], {})
+                self.assertTrue(tool["annotations"]["readOnlyHint"])
+                continue
+            self.assertIn("workspace", tool["inputSchema"]["properties"])
+            self.assertNotIn("workspace", tool["inputSchema"]["required"])
+            if tool["name"] == "create_thread":
+                self.assertEqual(set(tool["inputSchema"]["properties"]), {"prompt", "title", "workspace"})
         self.assertFalse(rows[3]["result"]["isError"])
         self.assertIn("error", rows[4])
 
@@ -259,6 +615,53 @@ class SessionsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(len(result.stdout.splitlines()), 1)
         self.assertEqual(json.loads(result.stdout)["id"], 1)
+
+    def test_cli_worktree_opt_in_controls_workspace_selection(self):
+        target = self.worktree()
+        command = [sys.executable, "-B", str(ROOT / "scripts/codex_sessions.py"),
+                   "--root", str(self.root), "--codex", str(self.codex)]
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+             "params": {"protocolVersion": "2025-06-18"}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+             "params": {"name": "create_thread", "arguments": {
+                 "prompt": "fixture", "title": "fixture", "workspace": str(target)}}},
+        ]
+        payload = "\n".join(json.dumps(row) for row in messages) + "\n"
+        denied = subprocess.run(command, input=payload, capture_output=True, text=True, timeout=5)
+        self.assertEqual(denied.returncode, 0, denied.stderr)
+        denied_result = json.loads(denied.stdout.splitlines()[-1])["result"]
+        self.assertTrue(denied_result["isError"])
+        self.assertEqual(self.requests(), [])
+        allowed = subprocess.run([*command, "--allow-worktrees"], input=payload,
+                                 capture_output=True, text=True, timeout=5)
+        self.assertEqual(allowed.returncode, 0, allowed.stderr)
+        allowed_result = json.loads(allowed.stdout.splitlines()[-1])["result"]
+        self.assertFalse(allowed_result["isError"])
+        self.assertEqual(json.loads(allowed_result["content"][0]["text"])["cwd"], str(target))
+
+    def test_cli_permission_source_is_validated_and_bound_to_authorization_reader(self):
+        command = [sys.executable, "-B", str(ROOT / "scripts/codex_sessions.py"),
+                   "--root", str(self.root), "--codex", str(self.codex), "--permission-source-thread"]
+        invalid = subprocess.run([*command, "not-a-uuid", "--probe"], capture_output=True, text=True, timeout=5)
+        self.assertNotEqual(invalid.returncode, 0)
+        self.assertEqual(self.requests(), [])
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+             "params": {"name": "read_authorization", "arguments": {}}},
+        ]
+        # 合成宿主路径不在任何真实会话目录；读取由helper明确拒绝。
+        result = subprocess.run([*command, SOURCE_ID], input="\n".join(json.dumps(row) for row in messages) + "\n",
+                                capture_output=True, text=True, timeout=5,
+                                env={**os.environ, "CODEX_HOME": str(self.root / "isolated-codex-home")})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        reply = json.loads(result.stdout.splitlines()[-1])["result"]
+        self.assertTrue(reply["isError"])
+        self.assertEqual(reply["content"][0]["text"], "permission_source_unavailable")
+        reads = [row for row in self.requests() if row.get("method") == "thread/read"]
+        self.assertEqual([row["params"] for row in reads], [{"threadId": SOURCE_ID, "includeTurns": False}])
+        self.assertFalse(any(row.get("method", "").startswith("turn/") for row in self.requests()))
 
 
 if __name__ == "__main__":

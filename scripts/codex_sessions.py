@@ -10,11 +10,14 @@ import json
 import os
 from pathlib import Path
 import selectors
+import stat
 import subprocess
 import sys
 import time
 import uuid
 import unicodedata
+
+from session_permissions import SourceError, read_source_snapshot
 
 MAX_FRAME = 2 * 1024 * 1024
 PROMPT_LIMIT = 6000
@@ -249,11 +252,109 @@ class Proxy:
 
 
 class Sessions:
-    def __init__(self, root, proxy):
+    def __init__(self, root, proxy, allow_worktrees=False, permission_source_thread=None):
         self.root, self.proxy = root, proxy
+        self.allow_worktrees = allow_worktrees
         self.creation_uncertain = False
+        self.permission_source_thread = (thread_id(permission_source_thread)
+                                         if permission_source_thread is not None else None)
+        self.uncertain_messages = set()
 
-    def read(self, value, timeout=10):
+    def source_snapshot(self, include_user_messages=False):
+        """只采用用户绑定主窗口的宿主元数据；工具调用不能选择高权限来源。"""
+        identity = self.permission_source_thread
+        if identity is None:
+            raise AdapterError("permission_source_not_configured")
+        self.proxy.connect()
+        result = self.proxy.rpc("thread/read", {"threadId": identity, "includeTurns": False})
+        source = result.get("thread")
+        if (not isinstance(source, dict) or source.get("id") != identity
+                or source.get("cwd") != str(self.root) or not isinstance(source.get("path"), str)):
+            raise AdapterError("permission_source_identity_unavailable")
+        try:
+            return read_source_snapshot(source["path"], identity, self.root,
+                                        include_user_messages=include_user_messages)
+        except SourceError as exc:
+            raise AdapterError(str(exc)) from None
+
+    @staticmethod
+    def verify_permissions(result, snapshot):
+        for field, expected in snapshot["expected"].items():
+            actual = result.get(field)
+            if field == "activePermissionProfile":
+                if (not isinstance(actual, dict) or actual.get("id") != expected["id"]
+                        or actual.get("extends") is not None):
+                    raise AdapterError("created_permissions_mismatch")
+            elif actual != expected:
+                raise AdapterError("created_permissions_mismatch")
+
+    def workspace(self, value=None):
+        """默认固定根；显式启用后仅接受同仓库已登记的真实工作树根。"""
+        if value is None:
+            return self.root
+        if (not isinstance(value, str) or not value or len(value) > 4096
+                or any(unicodedata.category(ch).startswith("C") for ch in value)):
+            raise AdapterError("invalid_workspace")
+        target = Path(value)
+        try:
+            if not target.is_absolute() or target.resolve(strict=True) != target or not target.is_dir():
+                raise AdapterError("invalid_workspace")
+            if target == self.root:
+                return target
+            if not self.allow_worktrees:
+                raise AdapterError("worktree_access_not_enabled")
+            deadline = time.monotonic() + 3
+
+            def git_path(directory, option):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise AdapterError("worktree_identity_timeout")
+                result = subprocess.run(
+                    ["git", "-C", str(directory), "rev-parse", "--path-format=absolute", option],
+                    capture_output=True, timeout=remaining, check=False,
+                )
+                if result.returncode or len(result.stdout) > 8192:
+                    raise AdapterError("worktree_identity_unavailable")
+                return Path(os.fsdecode(result.stdout).rstrip("\n"))
+
+            if git_path(target, "--show-toplevel") != target:
+                raise AdapterError("workspace_not_worktree_root")
+            # 登记可残留，或原路径已被另一个目录替换；核对双方实际 Git 归属。
+            common = [git_path(directory, "--git-common-dir").resolve(strict=True)
+                      for directory in (self.root, target)]
+            if common[0] != common[1]:
+                raise AdapterError("workspace_repository_mismatch")
+            admin = git_path(target, "--absolute-git-dir")
+            marker = target / ".git"
+            if admin.resolve(strict=True) != admin or marker.is_symlink():
+                raise AdapterError("workspace_not_registered_worktree")
+            if admin == common[0]:
+                if not marker.is_dir() or marker.resolve(strict=True) != admin:
+                    raise AdapterError("workspace_not_registered_worktree")
+            else:
+                # Git 旧版 porcelain 无 NUL 输出；直接核对工作树登记的双向链接，
+                # 避免按行解析可含换行的路径，也拒绝复制/伪装的 .git 指针。
+                if admin.parent != common[0] / "worktrees" or not marker.is_file():
+                    raise AdapterError("workspace_not_registered_worktree")
+                if not hasattr(os, "O_NOFOLLOW"):
+                    raise AdapterError("safe_worktree_read_unavailable")
+                descriptor = os.open(admin / "gitdir", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                try:
+                    if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+                        raise AdapterError("workspace_not_registered_worktree")
+                    backlink = os.read(descriptor, 8193)
+                finally:
+                    os.close(descriptor)
+                if backlink != os.fsencode(marker) + b"\n":
+                    raise AdapterError("workspace_not_registered_worktree")
+        except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired):
+            raise AdapterError("workspace_unavailable") from None
+        return target
+
+    def read(self, value, timeout=10, *, workspace=None):
+        return self._read(value, self.workspace(workspace), timeout)
+
+    def _read(self, value, root, timeout=10):
         identity = thread_id(value)
         self.proxy.connect()
         deadline = time.monotonic() + timeout
@@ -261,14 +362,14 @@ class Sessions:
         observed = summary.get("thread")
         if not isinstance(observed, dict):
             raise AdapterError("invalid_host_response")
-        if observed.get("id") != identity or observed.get("cwd") != str(self.root):
+        if observed.get("id") != identity or observed.get("cwd") != str(root):
             raise AdapterError("thread_outside_configured_workspace")
         result = self.proxy.rpc("thread/read", {"threadId": identity, "includeTurns": True},
                                 max(.01, deadline - time.monotonic()))
         thread = result.get("thread")
         if not isinstance(thread, dict):
             raise AdapterError("invalid_host_response")
-        if thread.get("id") != identity or thread.get("cwd") != str(self.root):
+        if thread.get("id") != identity or thread.get("cwd") != str(root):
             raise AdapterError("thread_outside_configured_workspace")
         turns = thread.get("turns")
         if not isinstance(turns, list) or any(not isinstance(turn, dict) for turn in turns):
@@ -285,29 +386,38 @@ class Sessions:
         messages = [item.get("text", "") for item in items
                     if item.get("type") == "agentMessage" and isinstance(item.get("text"), str)]
         text = "\n".join(messages)
-        return {"threadId": identity, "cwd": str(self.root), "status": {"type": status["type"]},
+        return {"threadId": identity, "cwd": str(root), "status": {"type": status["type"]},
                 "turnId": turn.get("id"), "turnStatus": turn.get("status"),
                 "latestAssistantText": text[-PROMPT_LIMIT:], "textTruncated": len(text) > PROMPT_LIMIT,
                 "assurance": "observed_snapshot_not_takeover_approval"}
 
-    def create(self, prompt, title):
+    def create(self, prompt, title, *, workspace=None):
         if (not isinstance(prompt, str) or not prompt.strip() or len(prompt) > PROMPT_LIMIT
                 or not isinstance(title, str) or not title.strip() or len(title) > 80
                 or any(unicodedata.category(ch).startswith("C") for ch in title)):
             raise AdapterError("invalid_creation_input")
         if self.creation_uncertain:
             raise AdapterError("prior_creation_unknown_do_not_retry")
+        root = self.workspace(workspace)
         self.proxy.connect()  # 握手失败发生在创建前，不启动独立 app-server 兜底。
+        snapshot = self.source_snapshot() if self.permission_source_thread else None
         identity = None
         stage = "thread/start"
         try:
-            result = self.proxy.rpc(stage, {"cwd": str(self.root), "ephemeral": False})
+            result = self.proxy.rpc(stage, {"cwd": str(root), "ephemeral": False,
+                                           **(snapshot["start"] if snapshot else {})})
             created = result.get("thread")
             if not isinstance(created, dict):
                 raise AdapterError("invalid_host_response")
             identity = thread_id(created.get("id"))
-            if created.get("cwd") != str(self.root):
+            if created.get("cwd") != str(root):
                 raise AdapterError("unexpected_creation_workspace")
+            if snapshot:
+                stage = "permissions/verify"
+                self.verify_permissions(result, snapshot)
+                latest = self.source_snapshot()
+                if latest["start"] != snapshot["start"] or latest["expected"] != snapshot["expected"]:
+                    raise AdapterError("source_permissions_changed")
             stage = "thread/name/set"
             self.proxy.rpc(stage, {"threadId": identity, "name": title})
             stage = "turn/start"
@@ -317,22 +427,64 @@ class Sessions:
             if not isinstance(turn, dict) or not isinstance(turn.get("id"), str) or not turn["id"]:
                 raise AdapterError("turn_identity_missing")
             return {"status": "dispatched", "threadId": identity, "turnId": turn["id"],
-                    "cwd": str(self.root), "takeoverConfirmed": False,
+                    "cwd": str(root), "takeoverConfirmed": False,
+                    "permissionSync": "verified_host_snapshot" if snapshot else "host_default_unverified",
+                    "permissionSourceThreadId": self.permission_source_thread,
                     "nextAction": "read_thread 核对基线与下一实际动作；派发成功不等于接管"}
         except (AdapterError, KeyError, TypeError):
             self.creation_uncertain = True
-            return {"status": "unknown", "threadId": identity, "stage": stage,
+            if identity is not None:
+                self.uncertain_messages.add(identity)
+            return {"status": "unknown", "threadId": identity, "cwd": str(root), "stage": stage,
                     "retrySafe": False, "takeoverConfirmed": False,
                     "nextAction": "停止创建；用原生聊天列表核对结果，已知 ID 用 read_thread 查询；不得重放提示词"}
+
+    def send(self, identity, message, *, workspace=None):
+        identity = thread_id(identity)
+        if not isinstance(message, str) or not message.strip() or len(message) > PROMPT_LIMIT:
+            raise AdapterError("invalid_message")
+        if identity in self.uncertain_messages:
+            raise AdapterError("prior_message_unknown_do_not_retry")
+        snapshot = self.read(identity, workspace=workspace)
+        active = snapshot["status"]["type"] == "active" and snapshot["turnStatus"] == "inProgress"
+        idle = (snapshot["status"]["type"] == "idle"
+                and snapshot["turnStatus"] in (None, "completed", "failed", "interrupted"))
+        if not active and not idle:
+            raise AdapterError("thread_delivery_state_unknown")
+        stage = "turn/steer" if active else "turn/start"
+        params = {"threadId": identity, "input": [{"type": "text", "text": message}]}
+        if active:
+            params["expectedTurnId"] = snapshot["turnId"]
+        try:
+            result = self.proxy.rpc(stage, params)
+            turn = result.get("turnId") if active else result.get("turn", {}).get("id")
+            if not isinstance(turn, str) or not turn or (active and turn != snapshot["turnId"]):
+                raise AdapterError("message_turn_unconfirmed")
+            return {"status": "steered" if active else "dispatched", "threadId": identity,
+                    "turnId": turn, "cwd": snapshot["cwd"], "receivedByModel": False,
+                    "nextAction": "核对接收者实际动作；宿主接受不证明模型已消费，审批等待仍须按原权限处理"}
+        except (AdapterError, AttributeError, TypeError):
+            self.uncertain_messages.add(identity)
+            return {"status": "unknown", "threadId": identity, "stage": stage,
+                    "retrySafe": False, "receivedByModel": False,
+                    "nextAction": "核对原操作与接收者；不重放、不改用排队或新turn重复投递"}
 
     def call(self, name, args):
         if not isinstance(args, dict):
             raise AdapterError("invalid_arguments")
-        if name == "create_thread" and set(args) == {"prompt", "title"}:
-            return self.create(args["prompt"], args["title"])
-        if name == "read_thread" and set(args) == {"threadId"}:
-            return self.read(args["threadId"])
-        if name == "wait_threads" and set(args) == {"threadIds", "timeoutMs"}:
+        fields = set(args) - {"workspace"}
+        if "workspace" in args and args["workspace"] is None:
+            raise AdapterError("invalid_workspace")
+        if name == "read_authorization" and not args:
+            source = self.source_snapshot(include_user_messages=True)
+            return {key: source[key] for key in ("sourceThreadId", "observation", "userMessages", "historyTruncated")}
+        if name == "send_message_to_thread" and fields == {"threadId", "message"}:
+            return self.send(args["threadId"], args["message"], workspace=args.get("workspace"))
+        if name == "create_thread" and fields == {"prompt", "title"}:
+            return self.create(args["prompt"], args["title"], workspace=args.get("workspace"))
+        if name == "read_thread" and fields == {"threadId"}:
+            return self.read(args["threadId"], workspace=args.get("workspace"))
+        if name == "wait_threads" and fields == {"threadIds", "timeoutMs"}:
             ids, timeout = args["threadIds"], args["timeoutMs"]
             if (not isinstance(ids, list) or not 1 <= len(ids) <= 8
                     or type(timeout) is not int or not 0 <= timeout <= 30000):
@@ -340,6 +492,7 @@ class Sessions:
             identities = [thread_id(value) for value in ids]
             if len(set(identities)) != len(identities):
                 raise AdapterError("invalid_wait_input")
+            root = self.workspace(args.get("workspace"))
             self.proxy.connect()
             deadline = time.monotonic() + timeout / 1000
             transport_deadline = time.monotonic() + max(10, timeout / 1000)
@@ -350,7 +503,7 @@ class Sessions:
                     remaining = transport_deadline - time.monotonic()
                     if remaining <= 0:
                         raise AdapterError("snapshot_budget_exhausted")
-                    snapshots.append(self.read(value, min(10, remaining)))
+                    snapshots.append(self._read(value, root, min(10, remaining)))
                 if timeout == 0 or any(row["turnStatus"] in ("completed", "failed", "interrupted")
                                        for row in snapshots) or time.monotonic() >= deadline:
                     return {"threads": snapshots}
@@ -371,13 +524,23 @@ def tools():
          {"threadIds": {"type": "array", "items": {"type": "string", "format": "uuid"},
                         "minItems": 1, "maxItems": 8, "uniqueItems": True},
           "timeoutMs": {"type": "integer", "minimum": 0, "maximum": 30000}}, True),
+        ("send_message_to_thread", "在用户已授权的目标内直接发送协作消息：活动turn使用带expectedTurnId的steer，空闲时启动turn，不调用queue。未知结果不重试，宿主接受不表示模型已消费；不授予新权限。",
+         {"threadId": {"type": "string", "format": "uuid"},
+          "message": {"type": "string", "minLength": 1, "maxLength": PROMPT_LIMIT}}, False),
     ]
-    return [{"name": name, "description": description,
-             "inputSchema": {"type": "object", "properties": properties,
+    catalog = [{"name": name, "description": description + " 可选 workspace 仅在服务显式启用 --allow-worktrees 时选择同仓库已登记的工作树；默认固定根，不创建工作树。" + (
+                 " 若已配置 --permission-source-thread，每次创建应用主窗口最新可读取宿主权限快照，并在派发前核对实际返回；不继承单次批准。" if name == "create_thread" else ""),
+             "inputSchema": {"type": "object", "properties": {**properties,
+                             "workspace": {"type": "string", "minLength": 1, "maxLength": 4096}},
                              "required": list(properties), "additionalProperties": False},
              "annotations": {"readOnlyHint": read_only, "destructiveHint": False,
                              "idempotentHint": read_only, "openWorldHint": True}}
             for name, description, properties, read_only in definitions]
+    catalog.append({"name": "read_authorization", "description": "只读用户已绑定主窗口的原始user文本，至多8条/6000字符；用于语义核验原始授权，不把智能体创建消息或转述升级为人类授权。无需输入路径或thread ID，不返回工具/助手历史。未配置来源时失败。",
+                    "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+                    "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True,
+                                    "openWorldHint": False}})
+    return catalog
 
 
 def serve(sessions, source, sink):
@@ -441,13 +604,21 @@ def serve(sessions, source, sink):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", required=True, help="固定允许的本地工作区；不在工具参数中接受其他目录")
+    parser.add_argument("--root", required=True, help="默认固定的本地工作区")
+    parser.add_argument("--allow-worktrees", action="store_true",
+                        help="显式允许 workspace 选择同仓库已登记的隔离工作树；不创建工作树")
+    parser.add_argument("--permission-source-thread", help="用户绑定的主窗口UUID；每次创建只读其宿主权限快照并验证实际新窗口，不接受工具参数覆盖")
     parser.add_argument("--codex", default="codex", help="已安装 Codex CLI 的程序路径")
     parser.add_argument("--probe", action="store_true", help="只读握手检测现有 daemon，不创建会话")
     args = parser.parse_args()
     root = Path(args.root)
     if not root.is_absolute() or not root.is_dir() or root.resolve() != root:
         parser.error("root 必须是已存在、规范化且无链接别名的绝对目录")
+    if args.permission_source_thread:
+        try:
+            thread_id(args.permission_source_thread)
+        except AdapterError:
+            parser.error("permission-source-thread 必须是规范UUID")
     proxy = Proxy(args.codex, root)
     try:
         if args.probe:
@@ -455,7 +626,8 @@ def main():
             print(json.dumps({"status": "connected", "cwd": str(root),
                               "assurance": "handshake_only_no_creation_or_takeover"}))
         else:
-            serve(Sessions(root, proxy), sys.stdin.buffer, sys.stdout.buffer)
+            serve(Sessions(root, proxy, args.allow_worktrees, args.permission_source_thread),
+                  sys.stdin.buffer, sys.stdout.buffer)
     except (AdapterError, OSError):
         print(json.dumps({"error": "existing_daemon_unavailable"}), file=sys.stderr)
         return 1

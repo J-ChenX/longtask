@@ -592,6 +592,38 @@
       "expected_entry": null,
       "rationale": "会话授权的单次解释不自动触发技能。",
       "expected_skill": null
+    },
+    {
+      "id": "explicit_multi_window_execution",
+      "prompt": "用longtask沿现有合同建立多个独立对话，分别完成可隔离的解析与报告工作包，并协调集成。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "expected_skill": "longtask",
+      "rationale": "Explicit multi-window execution along existing contracts selects continue."
+    },
+    {
+      "id": "automatic_slice_handoff",
+      "prompt": "继续当前longtask；授权按任务片段自动创建接续对话，压缩恢复后核对状态并在安全出口交接，不回灌旧过程。",
+      "should_trigger": true,
+      "expected_entry": "continue",
+      "expected_skill": "longtask",
+      "rationale": "Explicit ongoing task continuation with authorized session transfer selects continue."
+    },
+    {
+      "id": "terminal_window_layout_only",
+      "prompt": "告诉我怎样用tmux把当前终端拆成三个窗格查看日志；只需操作说明，不启动任务。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "expected_skill": null,
+      "rationale": "Terminal window layout instructions do not require cross-session coding orchestration."
+    },
+    {
+      "id": "compress_handoff_prose_only",
+      "prompt": "把这段现成的交接说明压缩到200字，只在聊天中改写文本，不执行项目或创建会话。",
+      "should_trigger": false,
+      "expected_entry": null,
+      "expected_skill": null,
+      "rationale": "Prose shortening is not a recoverable coding task or actual session handoff."
     }
   ]
 }

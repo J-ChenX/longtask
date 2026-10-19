@@ -45,6 +45,8 @@ CONTRACT_INPUTS = (
     "scripts/longtask_state.py",
     "scripts/longtask_hooks.py",
     "scripts/codex_sessions.py",
+    "scripts/session_permissions.py",
+    "tests/test_session_permissions.py",
     "tests/test_codex_sessions.py",
     "hooks/hooks.json",
     "tests/test_longtask_hooks.py",
@@ -65,6 +67,8 @@ CONTRACT_INPUTS = (
 DEFAULT_TIMEOUT_SECONDS = 300.0
 DEFAULT_SUITE = "tests.test_forward_workflows.ForwardWorkflowTests"
 TEST_SUITES = {
+    "tests.test_session_permissions.SourceSnapshotTests": ("test_session_permissions.py", "SourceSnapshotTests"),
+    "tests.test_codex_sessions.SessionsTests": ("test_codex_sessions.py", "SessionsTests"),
     "tests.test_longtask_hooks.LongtaskHookTests": ("test_longtask_hooks.py", "LongtaskHookTests"),
     DEFAULT_SUITE: ("test_forward_workflows.py", "ForwardWorkflowTests"),
     "tests.test_longtask_state.LongtaskStateTests": ("test_longtask_state.py", "LongtaskStateTests"),

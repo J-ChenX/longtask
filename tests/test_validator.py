@@ -6,6 +6,7 @@ import importlib.util
 import io
 import itertools
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -156,6 +157,8 @@ class ValidatorTests(unittest.TestCase):
         schema_path = PROJECT / "references/state.schema.json"
         original = json.loads(schema_path.read_text())
         mutations = (
+            lambda schema: schema["properties"]["skill_version"].update(const=VALIDATOR.SKILL_VERSION),
+            lambda schema: schema["properties"]["skill_version"].update(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$"),
             lambda schema: schema["$defs"]["workspaceManifest"].update(additionalProperties=True),
             lambda schema: schema["properties"]["work_packages"]["items"]["properties"].update(
                 settlement_manifest={"type": "object"}),
@@ -173,6 +176,19 @@ class ValidatorTests(unittest.TestCase):
                 with mock.patch.object(VALIDATOR, "load_json", side_effect=load):
                     VALIDATOR.check_metadata(errors)
                 self.assertTrue(any("state schema" in error for error in errors), errors)
+
+    def test_checkpoint_schema_accepts_same_major_versions_and_rejects_malformed_versions(self) -> None:
+        version_schema = json.loads((PROJECT / "references/state.schema.json").read_text())["properties"]["skill_version"]
+        pattern = version_schema["pattern"]
+        major = VALIDATOR.SKILL_VERSION.split(".")[0]
+        for version in (f"{major}.0.0", f"{major}.2.0", VALIDATOR.SKILL_VERSION, f"{major}.99.99"):
+            with self.subTest(version=version):
+                self.assertIsNotNone(re.search(pattern, version))
+        for version in ("3.0.0", "5.0.0", f"{major}0.0.0", f"0{major}.2.0", f"{major}.02.0",
+                        f"{major}.2.00", f"{major}.2", f"{major}.2.0-rc.1", f"{major}.2.0+build",
+                        f"v{major}.2.0", f"{major}.２.0", f"{major}.2.0\n"):
+            with self.subTest(version=version):
+                self.assertIsNone(re.search(pattern, version))
 
     def test_repeated_host_samples_require_distinct_execution_and_current_bindings(self) -> None:
         data = self.host_fixture()
@@ -463,7 +479,7 @@ class ValidatorTests(unittest.TestCase):
                 restore()
                 notes.write_text(raw)
                 self.assertTrue(any('version-notes' in error for error in check()))
-            for target in ('04.3.0', '4.2', '4.3.0-rc.1', '4.3.0+build', 'v4.3.0', '0.0.1'):
+            for target in ('04.5.0', '4.2', '4.5.0-rc.1', '4.5.0+build', 'v4.5.0', '0.0.1'):
                 restore()
                 manifest.write_text(json.dumps({'version': target}))
                 self.assertTrue(check())
@@ -889,7 +905,7 @@ class ValidatorTests(unittest.TestCase):
             root = Path(temporary)
             (root / "scripts").mkdir()
             (root / "scripts/build_release.py").write_text("# fixture\n")
-            (root / "release-manifest.json").write_text(json.dumps({"package": "longtask", "version": "4.3.0"}))
+            (root / "release-manifest.json").write_text(json.dumps({"package": "longtask", "version": "4.5.0"}))
             (root / "evals").mkdir()
             data = self.host_fixture()
             (root / "evals/host_results.json").write_text(json.dumps(data))
@@ -963,14 +979,14 @@ class ValidatorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=PROJECT) as temporary:
             path = Path(temporary) / "SKILL.md"
             path.write_text(
-                "---\nname: temporary\ndescription: user's durable workflow\nlicense: MIT\ncompatibility: Codex with Python 3.14+\nmetadata:\n  version: 4.3.0\n---\n# Temporary\n",
+                "---\nname: temporary\ndescription: user's durable workflow\nlicense: MIT\ncompatibility: Codex with Python 3.14+\nmetadata:\n  version: 4.5.0\n---\n# Temporary\n",
                 encoding="utf-8",
             )
             errors: list[str] = []
             VALIDATOR.check_skill(path, "temporary", errors)
             self.assertEqual(errors, [])
             path.write_text(
-                "---\nname: temporary\ndescription: \"unclosed\nmetadata:\n  version: 4.3.0\n---\n# Temporary\n",
+                "---\nname: temporary\ndescription: \"unclosed\nmetadata:\n  version: 4.5.0\n---\n# Temporary\n",
                 encoding="utf-8",
             )
             errors = []
@@ -981,9 +997,9 @@ class ValidatorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=PROJECT) as temporary:
             path = Path(temporary) / "SKILL.md"
             base = ("---\nname: temporary\ndescription: Durable workflow\nlicense: MIT\n"
-                    "compatibility: Codex with Python 3.14+\nmetadata:\n  version: \"4.3.0\"\n---\n# Temporary\n")
+                    "compatibility: Codex with Python 3.14+\nmetadata:\n  version: \"4.5.0\"\n---\n# Temporary\n")
             for text in (base.replace("license: MIT", "license: MIT\nlicense: Apache-2.0"),
-                         base.replace('  version: "4.3.0"', '  version: "4.3.0"\n  version: "4.3.0"'),
+                         base.replace('  version: "4.5.0"', '  version: "4.5.0"\n  version: "4.5.0"'),
                          base.replace("Codex with Python 3.14+", "x" * 501)):
                 with self.subTest(text=text):
                     path.write_text(text, encoding="utf-8")

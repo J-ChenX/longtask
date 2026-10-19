@@ -246,7 +246,7 @@
   ],
   "properties": {
     "schema_version": {"const": 3},
-    "skill_version": {"type": "string", "const": "4.3.0"},
+    "skill_version": {"description": "Checkpoint creation version, preserved on compatible updates. Minor and patch versions within the runtime major share the recovery contract; other state and evidence checks still apply.", "type": "string", "pattern": "^4\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?![\\s\\S])"},
     "task_id": {"description": "Runtime-minted generation identity: optional human prefix plus 32 random hex characters. Clients must use the returned value for CAS; it is not a storage path.", "type": "string", "pattern": "^(?!.*\\.\\.)[a-z0-9][a-z0-9._-]{0,63}$"},
     "mode": {"enum": ["setup", "continue", "review", "modify", "retrofit"]},
     "approval_policy": {"enum": ["interactive", "guarded", "autonomous"]},

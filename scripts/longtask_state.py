@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = 3
-SKILL_VERSION = "4.3.0"
+SKILL_VERSION = "4.5.0"
 TASK_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 ACTOR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -824,6 +824,14 @@ def validate_handoff(value: Any, state: dict[str, Any] | None = None) -> list[st
     return errors
 
 
+def skill_version_supported(version: Any) -> bool:
+    """同一大版本共享恢复合同；保留检查点原版本，不通过改写版本绕过结构校验。"""
+    if not isinstance(version, str):
+        return False
+    match = re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version)
+    return match is not None and match[1] == SKILL_VERSION.split(".")[0]
+
+
 def validate_state(
     data: dict[str, Any], root: Path | None = None, allow_event_gap: bool = False,
     allow_workspace_drift: bool = False, allow_event_log_ahead: bool = False,
@@ -837,7 +845,7 @@ def validate_state(
 
     if data["schema_version"] != SCHEMA_VERSION:
         errors.append(f"unsupported schema_version: {data['schema_version']!r}")
-    if data["skill_version"] != SKILL_VERSION:
+    if not skill_version_supported(data["skill_version"]):
         errors.append(f"unsupported skill_version: {data['skill_version']!r}")
     if not isinstance(data["task_id"], str) or not task_id_valid(data["task_id"]):
         errors.append("invalid task_id")
@@ -1813,8 +1821,8 @@ def validate_replacement_target(root: Path, args: argparse.Namespace) -> None:
     _, active = load_state(root)
     if expected != (active.get("task_id"), active.get("revision"), active.get("artifact_digest")):
         raise StateError("active task changed before --replace-active; prior active task CAS does not match")
-    current_version = (active.get("schema_version"), active.get("skill_version")) == (SCHEMA_VERSION, SKILL_VERSION)
-    if current_version and active.get("artifact_digest") != artifact_digest(root):
+    compatible_version = active.get("schema_version") == SCHEMA_VERSION and skill_version_supported(active.get("skill_version"))
+    if compatible_version and active.get("artifact_digest") != artifact_digest(root):
         raise StateError("active workspace changed before --replace-active; checkpoint and reconcile it first")
 
 
