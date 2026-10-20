@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import json
+import os
 import re
 import sys
 
@@ -255,6 +256,9 @@ def condition_args(values):
 
 
 def main(argv=None):
+    if os.name == 'nt':
+        sys.stdout.reconfigure(encoding='utf-8', newline='\n')
+        sys.stderr.reconfigure(encoding='utf-8', newline='\n')
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
     report = commands.add_parser('query')

@@ -97,7 +97,7 @@ def write_json(path, value):
 
 
 def load_cases():
-    manifest = json.loads((ROOT / 'evals/progress_cases.json').read_text())
+    manifest = json.loads((ROOT / 'evals/progress_cases.json').read_text(encoding='utf-8'))
     cases = manifest.get('cases', [])
     if manifest.get('schema_version') != 1 or manifest.get('suite') != 'source_explicit_progress_journeys':
         raise ValueError('Unsupported progress corpus identity')
@@ -186,7 +186,7 @@ def fixture(workspace, source, case):
           "required={'discovery':['合同.md'],'architecture':['docs/ARCHITECTURE.md'],"
           "'documentation':['docs/modules/文本转换.md']}\n"
           "for name in required[sys.argv[1]]:\n"
-          " assert Path(name).is_file() and Path(name).read_text().strip(),name\n"
+          " assert Path(name).is_file() and Path(name).read_text(encoding='utf-8').strip(),name\n"
           "print('PASS local fixture document presence: '+sys.argv[1])\n")
     operations = ['init']
     state = run_cli(source, workspace, 'init', '--mode', 'continue', '--task-id', 'synthetic-progress',
@@ -246,7 +246,7 @@ def fixture(workspace, source, case):
     if case['fixture'] == 'stale':
         # Real product edit after version-bound public handoff, never hand-edit state.
         path = workspace / 'slug.py'
-        path.write_text(path.read_text() + '\n# 合成交接后的外部变更\n')
+        path.write_text(path.read_text(encoding='utf-8') + '\n# 合成交接后的外部变更\n', encoding='utf-8')
     return {'cli_operations': operations, 'state_created_by': 'public CLI',
             'task_id': state['task_id'], 'revision': state['revision'], 'critic': critic,
             'approval_created': False, 'independent_review_created': False}
@@ -589,7 +589,7 @@ def verify(data, private=False):
             if private:
                 if digest(sample['collection_identity_path']) != sample['collection_identity_sha256']:
                     errors.append('Original private collection identity changed')
-                elif json.loads(Path(sample['collection_identity_path']).read_text()) != identity:
+                elif json.loads(Path(sample['collection_identity_path']).read_text(encoding='utf-8')) != identity:
                     errors.append('Private collection identity differs from public result')
                 for name, path in identity['collection_snapshot_paths'].items():
                     if digest(path) != identity['collection_inputs_sha256'][name]:
@@ -609,7 +609,7 @@ def verify(data, private=False):
                         if not stage.get('failure_sha256') or stage.get('status') != 'unable_to_verify':
                             errors.append('Malformed collector output requires retained failure artifact')
                         else:
-                            failure = json.loads(Path(stage['failure_path']).read_text())
+                            failure = json.loads(Path(stage['failure_path']).read_text(encoding='utf-8'))
                             for locator in failure['locators'].values():
                                 try:
                                     current_locator = {'path': locator['path'], 'sha256': digest(locator['path']), 'error': None}
@@ -618,7 +618,7 @@ def verify(data, private=False):
                                 if current_locator != locator:
                                     errors.append('Original failed collector artifact presence/hash changed')
                     elif stage.get('summary_sha256'):
-                        summary = json.loads(Path(stage['summary_path']).read_text())
+                        summary = json.loads(Path(stage['summary_path']).read_text(encoding='utf-8'))
                         if any(summary.get(key) != stage.get(key) for key in ('status', 'failure_class', 'collector_run_id',
                                'thread_id', 'last_turn_id', 'trace_path', 'trace_sha256', 'evaluated_archive_sha256')):
                             errors.append('Collector summary differs from saved identity')
@@ -694,7 +694,7 @@ def main():
     else:
         if args.out or args.retention_until or args.case:
             ap.error('--out, --retention-until and --case apply only to collection')
-        data = json.loads(args.results.read_text())
+        data = json.loads(args.results.read_text(encoding='utf-8'))
         errors = verify(data, private=args.verify_private)
     print(json.dumps({'status': 'pass' if not errors else 'fail', 'errors': errors,
                       'retained_samples': len(data.get('samples', [])),

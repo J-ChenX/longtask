@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -178,7 +179,7 @@ def cli_mutation(command, root, task_id, revision, actor, extra):
             "--expected-task-id", task_id, "--expected-revision", str(revision),
             "--actor", actor, "--output", "summary", *extra]
     try:
-        completed = subprocess.run(args, capture_output=True, text=True, timeout=60)
+        completed = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=60)
     except (subprocess.TimeoutExpired, OSError) as exc:
         raise UncertainMutation("Runtime result unavailable; inspect checkpoint before retrying") from exc
     raw = completed.stdout if completed.returncode == 0 else completed.stderr
@@ -248,6 +249,9 @@ def bounded_int(value):
 
 
 def main(argv=None):
+    if os.name == 'nt':
+        sys.stdout.reconfigure(encoding='utf-8', newline='\n')
+        sys.stderr.reconfigure(encoding='utf-8', newline='\n')
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     for name in ("record", "list", "read"):

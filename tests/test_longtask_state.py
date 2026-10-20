@@ -15,6 +15,7 @@ from unittest import mock
 
 PROJECT = Path(__file__).resolve().parents[1]
 STATE_SCRIPT = PROJECT / "scripts" / "longtask_state.py"
+sys.path.insert(0, str(PROJECT / "scripts"))
 SPEC = importlib.util.spec_from_file_location("longtask_state", STATE_SCRIPT)
 assert SPEC and SPEC.loader
 STATE = importlib.util.module_from_spec(SPEC)
@@ -22,6 +23,16 @@ SPEC.loader.exec_module(STATE)
 
 
 class LongtaskStateTests(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "native junction equivalent covered separately")
+    def test_cli_root_symlink_is_refused_before_target_writes(self):
+        alias = self.root / "root-alias"
+        alias.symlink_to(self.root, target_is_directory=True)
+        result = subprocess.run([sys.executable, str(STATE_SCRIPT), "init", "--root", str(alias),
+                                 "--mode", "continue", "--goal", "reject aliased root"],
+                                capture_output=True)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertFalse((self.root / ".longtask").exists())
+
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
@@ -538,13 +549,13 @@ class LongtaskStateTests(unittest.TestCase):
         state = self.complete_review_checkpoint()
         args = Namespace(root=str(self.root), expected_task_id=state["task_id"],
                          expected_revision=state["revision"], actor="operator")
-        original = os.unlink
+        original = STATE.fs.unlink
         def interrupted(path, *arguments, **kwargs):
             if path == fail_unlink:
                 raise OSError("simulated cleanup interruption")
             return original(path, *arguments, **kwargs)
         with (
-            mock.patch.object(STATE.os, "unlink", side_effect=interrupted),
+            mock.patch.object(STATE.fs, "unlink", side_effect=interrupted),
             self.assertRaisesRegex(STATE.StateError, "cleanup incomplete"),
         ):
             STATE.cmd_finish(args)

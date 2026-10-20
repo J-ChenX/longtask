@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -14,6 +15,9 @@ SCRIPT = Path(__file__).with_name('longtask_state.py')
 
 
 def main() -> int:
+    if os.name == 'nt':
+        sys.stdout.reconfigure(encoding='utf-8', newline='\n')
+        sys.stderr.reconfigure(encoding='utf-8', newline='\n')
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
     begin = commands.add_parser('begin', help='Initialize a new project before writing its planning documents')
@@ -28,7 +32,7 @@ def main() -> int:
         command.add_argument('--actor', default='planner')
         command.add_argument('--next-action', required=True, help='Current next step, including any remaining authorization boundary')
     args = parser.parse_args()
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     completed: list[str] = []
     warnings: list[str] = []
     state: dict = {}
@@ -39,7 +43,7 @@ def main() -> int:
             argv += ['--expected-task-id', state['task_id'], '--expected-revision', str(state['revision'])]
         if name not in {'route', 'validate'}:
             argv += ['--actor', args.actor]
-        result = subprocess.run([*argv, *extra], capture_output=True, text=True, timeout=30)
+        result = subprocess.run([*argv, *extra], capture_output=True, text=True, encoding="utf-8", timeout=30)
         if result.returncode:
             raise runtime.StateError(result.stderr.strip() or 'State operation failed')
         data = json.loads(result.stdout)

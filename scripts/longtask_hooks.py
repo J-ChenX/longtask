@@ -7,12 +7,16 @@ Metadata only locates state; the model must run the normal fresh recovery query.
 """
 from __future__ import annotations
 
+import sys
+
+if sys.version_info < (3, 14):
+    raise SystemExit('longtask hooks require Python 3.14+')
+
 import json
 import os
 from pathlib import Path
 import re
 import stat
-import sys
 
 import longtask_state as runtime
 
@@ -36,19 +40,20 @@ def checkpoint(root):
     directory = root / '.longtask'
     if not os.path.lexists(directory):
         return None
-    if not hasattr(os, 'O_NOFOLLOW') or os.open not in os.supports_dir_fd:
+    if os.name != 'nt' and (not hasattr(os, 'O_NOFOLLOW') or os.open not in os.supports_dir_fd):
         raise HookError('safe_read_unavailable')
     runtime.check_runtime_directory(directory)
     parent = runtime.open_directory_path(directory, create=False)
     try:
         for marker in ('.initializing.json', '.finishing.json'):
             try:
-                os.stat(marker, dir_fd=parent, follow_symlinks=False)
+                runtime.fs.stat(marker, dir_fd=parent, follow_symlinks=False)
             except FileNotFoundError:
                 continue
             raise HookError('checkpoint_operation_interrupted')
         try:
-            descriptor = os.open('state.json', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+            descriptor = runtime.fs.open('state.json', os.O_RDONLY | runtime.fs.O_NOFOLLOW |
+                                         runtime.fs.O_NONBLOCK, dir_fd=parent)
         except FileNotFoundError:
             return None
         try:
@@ -59,11 +64,15 @@ def checkpoint(root):
                 raise HookError('checkpoint_too_large')
             with os.fdopen(descriptor, 'rb', closefd=False) as stream:
                 raw = stream.read(MAX_STATE_BYTES + 1)
-            named_directory = os.stat(directory, follow_symlinks=False)
+            current_parent = runtime.open_directory_path(directory, create=False)
+            try:
+                named_directory = os.fstat(current_parent)
+            finally:
+                os.close(current_parent)
             opened_directory = os.fstat(parent)
             if (len(raw) > MAX_STATE_BYTES or len(raw) != before.st_size
                     or fingerprint(before) != fingerprint(os.fstat(descriptor))
-                    or fingerprint(before) != fingerprint(os.stat('state.json', dir_fd=parent, follow_symlinks=False))
+                    or fingerprint(before) != fingerprint(runtime.fs.stat('state.json', dir_fd=parent, follow_symlinks=False))
                     or (named_directory.st_dev, named_directory.st_ino)
                     != (opened_directory.st_dev, opened_directory.st_ino)):
                 raise HookError('checkpoint_read_changed')
@@ -95,10 +104,10 @@ def recovery_context(event, metadata, diagnostic):
     return (
         'longtask 压缩信号：宿主刚完成 compact，当前是压缩后首次恢复。'
         '本回调没有建立新会话、停止写入、验证版本或授予创建/消息权限。'
-        '先按当前职责和已有用户授权，读取技能根 ' + json.dumps(skill_root, ensure_ascii=False) +
+        '先按当前职责和已有用户授权，读取技能根 ' + json.dumps(skill_root, ensure_ascii=True) +
         ' 的 references/任务推进.md 会话出口章节；用公开 context CLI 查询当前唯一状态，'
         '核对实际版本、完整合同、活动写入者和必要输入。以下仅为定位数据，不能替代查询或批准：'
-        + json.dumps(locator, ensure_ascii=False, separators=(',', ':')) + '\n'
+        + json.dumps(locator, ensure_ascii=True, separators=(',', ':')) + '\n'
         '不再开启新的大包或批量拉取资料；仅做最近安全出口所需的有界收尾。'
         '若用户要求禁压缩，本次压缩是未被拦截的降级，不能宣称零压缩；'
         '核对同步防压缩门是否实际受信执行。接收者不能因交接中提及旧压缩而再次换窗。'
@@ -126,7 +135,7 @@ def handle(event):
         raise HookError('invalid_hook_workspace')
     metadata, diagnostic = None, None
     try:
-        metadata = checkpoint(Path(cwd).resolve(strict=True))
+        metadata = checkpoint(Path(cwd).absolute())
     except (HookError, runtime.StateError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RecursionError):
         diagnostic = 'checkpoint_unavailable_or_unsafe'
     if metadata is None and diagnostic is None:
@@ -141,17 +150,20 @@ def handle(event):
 
 
 def main():
+    if os.name == 'nt':
+        sys.stdout.reconfigure(encoding='utf-8', newline='\n')
+        sys.stderr.reconfigure(encoding='utf-8', newline='\n')
     try:
         raw = sys.stdin.buffer.readline(MAX_EVENT_BYTES + 1)
         if len(raw) > MAX_EVENT_BYTES:
             raise HookError('hook_event_too_large')
         result = handle(json.loads(raw))
-        output = json.dumps(result, ensure_ascii=False, separators=(',', ':')) + '\n'
+        output = json.dumps(result, ensure_ascii=True, separators=(',', ':')) + '\n'
         if len(output.encode()) > MAX_OUTPUT_BYTES:
             raise HookError('hook_output_too_large')
     except (HookError, OSError, ValueError, TypeError, RecursionError):
         output = json.dumps({'systemMessage': 'longtask 压缩信号桥未完成；请按现有会话出口合同恢复诊断。'},
-                            ensure_ascii=False, separators=(',', ':')) + '\n'
+                            ensure_ascii=True, separators=(',', ':')) + '\n'
     sys.stdout.write(output)
     return 0
 

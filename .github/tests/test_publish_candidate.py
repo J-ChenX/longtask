@@ -256,6 +256,74 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(self.created_tags, [])
         self.gh.assert_not_called()
 
+    def test_created_tag_visibility_delay_can_recover_on_last_check(self):
+        self.artifacts()
+        original = self.fake_api
+        missing_reads = 4
+
+        def delayed(method, path, payload=None, **kwargs):
+            nonlocal missing_reads
+            if path == "git/ref/tags/v4.1.0" and self.created_tags and missing_reads:
+                missing_reads -= 1
+                return None
+            return original(method, path, payload, **kwargs)
+
+        self.api_mock.side_effect = delayed
+        with mock.patch.object(RELEASE.time, "sleep") as sleep:
+            RELEASE.publish(self.root)
+        self.assertEqual(sleep.call_args_list, [mock.call(n) for n in (1, 2, 4, 8)])
+        self.assertEqual(self.created_tags, [{"ref": "refs/tags/v4.1.0", "sha": SHA}])
+        self.gh.assert_called_once()
+
+    def test_created_tag_visibility_timeout_is_bounded_without_recreating_tag(self):
+        self.artifacts()
+        original = self.fake_api
+
+        def invisible(method, path, payload=None, **kwargs):
+            if path == "git/ref/tags/v4.1.0":
+                return None
+            return original(method, path, payload, **kwargs)
+
+        self.api_mock.side_effect = invisible
+        with mock.patch.object(RELEASE.time, "sleep") as sleep:
+            with self.assertRaisesRegex(RELEASE.ReleaseError, "unavailable after creation"):
+                RELEASE.publish(self.root)
+        reads = [call for call in self.api_mock.call_args_list
+                 if call.args[:2] == ("GET", "git/ref/tags/v4.1.0")]
+        self.assertEqual(len(reads), 6)  # Initial lookup plus five visibility checks.
+        self.assertEqual(sum(call.args[0] for call in sleep.call_args_list), 15)
+        self.assertEqual(len(self.created_tags), 1)
+        self.gh.assert_not_called()
+
+    def test_visibility_retry_still_rejects_errors_invalid_refs_and_commit_drift(self):
+        self.artifacts()
+        original = self.fake_api
+        for failure in (RELEASE.ReleaseError("HTTP 403"), RELEASE.ReleaseError("HTTP 500"),
+                        {}, {"ref": "refs/tags/v4.1.0", "object": {"sha": OTHER_SHA, "type": "commit"}}):
+            self.tag = None
+            self.created_tags.clear()
+            checks = 0
+
+            def failed(method, path, payload=None, **kwargs):
+                nonlocal checks
+                if path == "git/ref/tags/v4.1.0" and self.created_tags:
+                    checks += 1
+                    if checks == 1:
+                        return None
+                    if isinstance(failure, Exception):
+                        raise failure
+                    return failure
+                return original(method, path, payload, **kwargs)
+
+            self.api_mock.side_effect = failed
+            with self.subTest(failure=failure), mock.patch.object(RELEASE.time, "sleep") as sleep:
+                with self.assertRaises(RELEASE.ReleaseError):
+                    RELEASE.publish(self.root)
+                sleep.assert_called_once_with(1)
+                self.assertEqual(checks, 2)
+                self.assertEqual(len(self.created_tags), 1)
+                self.gh.assert_not_called()
+
     def test_incomplete_draft_fails_without_overwriting_assets(self):
         # The published-by-tag endpoint returns 404 for a draft; the write job sees it in the list.
         self.release_pages[1] = [{"tag_name": "v4.1.0", "draft": True}]

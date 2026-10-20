@@ -16,6 +16,7 @@ from pathlib import Path
 from unittest import mock
 
 PROJECT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT / "scripts"))
 SCRIPT = PROJECT / "scripts" / "validate_longtask.py"
 SPEC = importlib.util.spec_from_file_location("validate_longtask", SCRIPT)
 assert SPEC and SPEC.loader
@@ -479,7 +480,7 @@ class ValidatorTests(unittest.TestCase):
                 restore()
                 notes.write_text(raw)
                 self.assertTrue(any('version-notes' in error for error in check()))
-            for target in ('04.6.0', '4.2', '4.6.0-rc.1', '4.6.0+build', 'v4.6.0', '0.0.1'):
+            for target in ('04.6.2', '4.2', '4.6.2-rc.1', '4.6.2+build', 'v4.6.2', '0.0.1'):
                 restore()
                 manifest.write_text(json.dumps({'version': target}))
                 self.assertTrue(check())
@@ -905,7 +906,7 @@ class ValidatorTests(unittest.TestCase):
             root = Path(temporary)
             (root / "scripts").mkdir()
             (root / "scripts/build_release.py").write_text("# fixture\n")
-            (root / "release-manifest.json").write_text(json.dumps({"package": "longtask", "version": "4.6.0"}))
+            (root / "release-manifest.json").write_text(json.dumps({"package": "longtask", "version": "4.6.2"}))
             (root / "evals").mkdir()
             data = self.host_fixture()
             (root / "evals/host_results.json").write_text(json.dumps(data))
@@ -979,14 +980,14 @@ class ValidatorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=PROJECT) as temporary:
             path = Path(temporary) / "SKILL.md"
             path.write_text(
-                "---\nname: temporary\ndescription: user's durable workflow\nlicense: MIT\ncompatibility: Codex with Python 3.14+\nmetadata:\n  version: 4.6.0\n---\n# Temporary\n",
+                "---\nname: temporary\ndescription: user's durable workflow\nlicense: MIT\ncompatibility: Codex with Python 3.14+\nmetadata:\n  version: 4.6.2\n---\n# Temporary\n",
                 encoding="utf-8",
             )
             errors: list[str] = []
             VALIDATOR.check_skill(path, "temporary", errors)
             self.assertEqual(errors, [])
             path.write_text(
-                "---\nname: temporary\ndescription: \"unclosed\nmetadata:\n  version: 4.6.0\n---\n# Temporary\n",
+                "---\nname: temporary\ndescription: \"unclosed\nmetadata:\n  version: 4.6.2\n---\n# Temporary\n",
                 encoding="utf-8",
             )
             errors = []
@@ -997,9 +998,9 @@ class ValidatorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=PROJECT) as temporary:
             path = Path(temporary) / "SKILL.md"
             base = ("---\nname: temporary\ndescription: Durable workflow\nlicense: MIT\n"
-                    "compatibility: Codex with Python 3.14+\nmetadata:\n  version: \"4.6.0\"\n---\n# Temporary\n")
+                    "compatibility: Codex with Python 3.14+\nmetadata:\n  version: \"4.6.2\"\n---\n# Temporary\n")
             for text in (base.replace("license: MIT", "license: MIT\nlicense: Apache-2.0"),
-                         base.replace('  version: "4.6.0"', '  version: "4.6.0"\n  version: "4.6.0"'),
+                         base.replace('  version: "4.6.2"', '  version: "4.6.2"\n  version: "4.6.2"'),
                          base.replace("Codex with Python 3.14+", "x" * 501)):
                 with self.subTest(text=text):
                     path.write_text(text, encoding="utf-8")

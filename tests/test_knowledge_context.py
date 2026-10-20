@@ -35,6 +35,15 @@ class KnowledgeContextTests(unittest.TestCase):
         self.addCleanup(workspace.close)
         return workspace
 
+    def test_hardlink_alias_and_link_count_change_are_refused(self):
+        target = self.root / "docs/ARCHITECTURE.md"
+        workspace = self.workspace()
+        workspace.read("docs/ARCHITECTURE.md")
+        alias = self.root / "alias.md"
+        alias.hardlink_to(target)
+        self.assert_error("read_race", workspace.verify)
+        self.assert_error("unsafe_path", lambda: self.workspace().read("alias.md"))
+
     def cli(self, *args, okay=True):
         result = subprocess.run([sys.executable, str(SCRIPT), *args, "--root", str(self.root)],
                                 text=True, capture_output=True)

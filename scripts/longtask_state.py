@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import json
 import os
@@ -19,8 +20,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+if os.name == "nt":
+    import windows_fs as fs
+else:
+    fs = os
+
+DIRECTORY_FLAGS = os.O_RDONLY | fs.O_DIRECTORY | fs.O_NOFOLLOW
+
 SCHEMA_VERSION = 3
-SKILL_VERSION = "4.6.0"
+SKILL_VERSION = "4.6.2"
 TASK_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 ACTOR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -130,6 +138,8 @@ def git_head(root: Path) -> str | None:
 
 def _runtime_file(relative: Path) -> bool:
     parts = relative.parts
+    if os.name == "nt":
+        parts = tuple(part.casefold() for part in parts)
     if any(part in IGNORED_PARTS for part in parts):
         return True
     return bool(parts) and parts[0] == ".longtask"
@@ -142,7 +152,7 @@ def artifact_parent(root: Path, path: Path) -> Iterator[int | None]:
     try:
         for part in path.relative_to(root).parts[:-1]:
             try:
-                child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=descriptor)
+                child = fs.open(part, DIRECTORY_FLAGS, dir_fd=descriptor)
             except FileNotFoundError:
                 yield None
                 return
@@ -153,6 +163,54 @@ def artifact_parent(root: Path, path: Path) -> Iterator[int | None]:
         yield descriptor
     finally:
         os.close(descriptor)
+
+
+def artifact_stat(name: str, parent: int) -> tuple[os.stat_result, bytes | None]:
+    """Inspect a leaf without following a link; runtime stat stays stricter."""
+    if os.name == "nt":
+        return fs.artifact_stat(name, dir_fd=parent)
+    metadata = os.stat(name, dir_fd=parent, follow_symlinks=False)
+    if not stat.S_ISLNK(metadata.st_mode):
+        return metadata, None
+    target = os.fsencode(os.readlink(name, dir_fd=parent))
+    final = os.stat(name, dir_fd=parent, follow_symlinks=False)
+    if (metadata.st_dev, metadata.st_ino, metadata.st_mtime_ns, metadata.st_ctime_ns) != (
+        final.st_dev, final.st_ino, final.st_mtime_ns, final.st_ctime_ns
+    ):
+        raise StateError(f"workspace link changed while reading: {name}")
+    return metadata, target
+
+
+def _walk_workspace(root: Path, workspace_root: Path) -> list[Path]:
+    """Fallback enumeration uses the same pinned, no-traversal boundary as Git leaves."""
+    paths: list[Path] = []
+
+    def walk(directory: Path, descriptor: int) -> None:
+        for name in fs.listdir(descriptor):
+            path = directory / name
+            if _runtime_file(path.relative_to(workspace_root)):
+                continue
+            metadata, link = artifact_stat(name, descriptor)
+            if link is not None or not stat.S_ISDIR(metadata.st_mode):
+                paths.append(path)
+                continue
+            child = fs.open(name, DIRECTORY_FLAGS, dir_fd=descriptor)
+            try:
+                try:
+                    fs.stat(".git", dir_fd=child, follow_symlinks=False)
+                except FileNotFoundError:
+                    walk(path, child)
+                else:
+                    paths.append(path)
+            finally:
+                os.close(child)
+
+    descriptor = open_directory_path(root, create=False)
+    try:
+        walk(root, descriptor)
+    finally:
+        os.close(descriptor)
+    return paths
 
 
 def workspace_files(root: Path, *, workspace_root: Path | None = None) -> list[Path]:
@@ -168,7 +226,7 @@ def workspace_files(root: Path, *, workspace_root: Path | None = None) -> list[P
         candidates = [root / os.fsdecode(item) for item in result.stdout.split(b"\0") if item]
     else:
         try:
-            candidates = list(root.rglob("*"))
+            candidates = _walk_workspace(root, workspace_root or root)
         except (OSError, RuntimeError) as exc:
             raise StateError(f"cannot enumerate workspace without Git: {exc}") from exc
 
@@ -184,14 +242,16 @@ def workspace_files(root: Path, *, workspace_root: Path | None = None) -> list[P
             if parent is None:
                 continue
             try:
-                metadata = os.stat(path.name, dir_fd=parent, follow_symlinks=False)
+                metadata, link = artifact_stat(path.name, parent)
             except FileNotFoundError:
                 continue
-            if stat.S_ISDIR(metadata.st_mode):
-                child = os.open(path.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+            if link is not None:
+                pass
+            elif stat.S_ISDIR(metadata.st_mode):
+                child = fs.open(path.name, DIRECTORY_FLAGS, dir_fd=parent)
                 try:
                     try:
-                        os.stat(".git", dir_fd=child, follow_symlinks=False)
+                        fs.stat(".git", dir_fd=child, follow_symlinks=False)
                     except FileNotFoundError:
                         continue
                 finally:
@@ -215,14 +275,16 @@ def _workspace_snapshot(root: Path, *, workspace_root: Path | None = None, byte_
             if parent is None:
                 raise StateError(f"workspace artifact disappeared while scanning: {relative_text}")
             try:
-                metadata = os.stat(path.name, dir_fd=parent, follow_symlinks=False)
+                metadata, link = artifact_stat(path.name, parent)
             except OSError as exc:
                 raise StateError(f"cannot inspect workspace artifact {relative_text}: {exc}") from exc
             mode = stat.S_IMODE(metadata.st_mode)
             digest.update(len(relative).to_bytes(8, "big"))
             digest.update(relative)
             digest.update(mode.to_bytes(4, "big"))
-            if stat.S_ISREG(metadata.st_mode):
+            if link is not None:
+                content = b"symlink\0" + link
+            elif stat.S_ISREG(metadata.st_mode):
                 if metadata.st_size > MAX_WORKSPACE_FILE_BYTES:
                     raise StateError(f"workspace artifact exceeds per-file digest limit: {relative_text}")
                 byte_budget[0] += metadata.st_size
@@ -232,9 +294,9 @@ def _workspace_snapshot(root: Path, *, workspace_root: Path | None = None, byte_
                 digest.update((len(prefix) + metadata.st_size).to_bytes(8, "big"))
                 digest.update(prefix)
                 file_digest = hashlib.sha256(mode.to_bytes(4, "big") + prefix)
-                flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+                flags = os.O_RDONLY | fs.O_NOFOLLOW | fs.O_NONBLOCK
                 try:
-                    descriptor = os.open(path.name, flags, dir_fd=parent)
+                    descriptor = fs.open(path.name, flags, dir_fd=parent)
                 except OSError as exc:
                     raise StateError(f"cannot open workspace artifact safely: {relative_text}: {exc}") from exc
                 try:
@@ -265,11 +327,6 @@ def _workspace_snapshot(root: Path, *, workspace_root: Path | None = None, byte_
                     os.close(descriptor)
                 files[relative_text] = file_digest.hexdigest()
                 continue
-            if stat.S_ISLNK(metadata.st_mode):
-                try:
-                    content = b"symlink\0" + os.fsencode(os.readlink(path.name, dir_fd=parent))
-                except OSError as exc:
-                    raise StateError(f"cannot read workspace link {relative_text}: {exc}") from exc
             elif stat.S_ISDIR(metadata.st_mode):
                 content = b"gitlink\0" + _workspace_snapshot(path, workspace_root=workspace_root, byte_budget=byte_budget)[0].encode("ascii")
             else:
@@ -304,8 +361,12 @@ def changed_manifest_paths(baseline: dict[str, Any], current: dict[str, Any]) ->
 def write_set_covers_path(write_set: Any, changed_path: str) -> bool:
     if not isinstance(write_set, list):
         return False
+    if os.name == "nt":
+        changed_path = changed_path.casefold()
     for target in write_set:
         normalized = normalize_write_target(target) if isinstance(target, str) else None
+        if normalized is not None and os.name == "nt":
+            normalized = normalized.casefold()
         if normalized is not None and (changed_path == normalized or changed_path.startswith(normalized + "/")):
             return True
     return False
@@ -328,78 +389,129 @@ def _inside(root: Path, target: Path) -> Path:
     return resolved
 
 
-def check_runtime_directory(directory: Path, *, reclaim_temporary: bool = False) -> None:
+def check_runtime_directory(directory: Path, *, reclaim_temporary: bool = False) -> set[str]:
     """Validate all entries first; reclaim runtime write debris only while holding its lock."""
     _inside(directory.parent, directory)
-    if not directory.exists():
-        return
-    descriptor = open_directory_path(directory, create=False)
+    parent = open_directory_path(directory.parent, create=False)
+    try:
+        try:
+            descriptor = fs.open(directory.name, DIRECTORY_FLAGS, dir_fd=parent)
+        except FileNotFoundError:
+            return set()
+    finally:
+        os.close(parent)
     temporary: list[tuple[str, os.stat_result]] = []
     # These are the only destinations written by atomic_write inside a checkpoint.
     temporary_pattern = re.compile(r"^\.(?:state\.json|events\.jsonl|\.initializing\.json)\.write-[0-9a-f]{24}$")
     try:
-        for name in os.listdir(descriptor):
+        names = set(fs.listdir(descriptor))
+        for name in names:
             is_temporary = temporary_pattern.fullmatch(name) is not None
             if name not in RUNTIME_NAMES and not is_temporary:
                 raise StateError(f"unknown checkpoint file; preserve and reconcile it: {name}")
-            value = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
+            value = fs.stat(name, dir_fd=descriptor, follow_symlinks=False)
             if not stat.S_ISREG(value.st_mode):
                 raise StateError(f"checkpoint file must be a regular non-symlink file: {name}")
             if value.st_nlink != 1:
                 raise StateError(f"checkpoint file must not be a hardlink: {name}")
             if is_temporary:
-                if stat.S_IMODE(value.st_mode) != 0o600 or (hasattr(os, "getuid") and value.st_uid != os.getuid()):
+                if os.name == "nt":
+                    candidate = fs.open(name, os.O_RDONLY, dir_fd=descriptor)
+                    try:
+                        opened = os.fstat(candidate)
+                        private = fs.is_private(candidate) and (opened.st_dev, opened.st_ino) == (value.st_dev, value.st_ino)
+                    finally:
+                        os.close(candidate)
+                else:
+                    private = stat.S_IMODE(value.st_mode) == 0o600 and value.st_uid == os.getuid()
+                if not private:
                     raise StateError(f"checkpoint temporary file has unexpected ownership or permissions; preserve it: {name}")
                 temporary.append((name, value))
         if temporary and not reclaim_temporary:
             raise StateError("interrupted checkpoint atomic write; retry its command to reclaim runtime temporary files under lock")
         for name, expected in temporary:
-            current = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
+            current = fs.stat(name, dir_fd=descriptor, follow_symlinks=False)
             if (current.st_dev, current.st_ino, current.st_mode, current.st_nlink, current.st_uid) != (
                 expected.st_dev, expected.st_ino, expected.st_mode, expected.st_nlink, expected.st_uid
             ):
                 raise StateError(f"checkpoint temporary file changed identity; preserve it: {name}")
         for name, _ in temporary:
-            os.unlink(name, dir_fd=descriptor)
+            fs.unlink(name, dir_fd=descriptor)
         if temporary:
-            os.fsync(descriptor)
+            flush_directory(descriptor)
+        return names - {name for name, _ in temporary}
     finally:
         os.close(descriptor)
 
 
 def active_state_path(root: Path) -> Path:
     directory = _inside(root, root / ".longtask")
-    check_runtime_directory(directory)
-    if (directory / ".initializing.json").exists():
+    names = check_runtime_directory(directory)
+    if ".initializing.json" in names:
         raise StateError("checkpoint initialization interrupted; retry the identical init request")
-    if (directory / ".finishing.json").exists():
+    if ".finishing.json" in names:
         raise StateError("checkpoint cleanup interrupted; retry finish with the observed identity")
     return directory / "state.json"
 
 
 def load_state(root: Path) -> tuple[Path, dict[str, Any]]:
     path = active_state_path(root)
-    if not path.is_file():
-        raise StateError(".longtask/state.json is missing; no unfinished checkpoint")
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        data = json.loads(runtime_read(path).decode("utf-8"))
+    except FileNotFoundError as exc:
+        raise StateError(".longtask/state.json is missing; no unfinished checkpoint") from exc
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise StateError(f"cannot parse {path.relative_to(root)}: {exc}") from exc
     if not isinstance(data, dict):
         raise StateError("state.json must contain an object")
     return path, data
 
 
+def runtime_read(path: Path, *, missing_ok: bool = False) -> bytes | None:
+    """Read a checkpoint leaf through pinned parents, rejecting aliases and races."""
+    with artifact_parent(path.parent.parent, path) as parent:
+        try:
+            if parent is None:
+                raise FileNotFoundError(str(path))
+            expected = fs.stat(path.name, dir_fd=parent, follow_symlinks=False)
+            if not stat.S_ISREG(expected.st_mode) or expected.st_nlink != 1:
+                raise StateError(f"checkpoint read target must be a regular single-link file: {path.name}")
+            fd = fs.open(path.name, os.O_RDONLY | fs.O_NOFOLLOW | fs.O_NONBLOCK, dir_fd=parent)
+        except FileNotFoundError:
+            if missing_ok:
+                return None
+            raise
+        try:
+            opened = os.fstat(fd)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1
+                or (opened.st_dev, opened.st_ino) != (expected.st_dev, expected.st_ino)):
+                raise StateError(f"checkpoint read target changed identity: {path.name}")
+            chunks = []
+            remaining = opened.st_size
+            while remaining:
+                chunk = os.read(fd, min(HASH_CHUNK_BYTES, remaining))
+                if not chunk:
+                    raise StateError(f"checkpoint read target shrank: {path.name}")
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            extra = os.read(fd, 1)
+            final = os.fstat(fd)
+            current = fs.stat(path.name, dir_fd=parent, follow_symlinks=False)
+            if (extra or final.st_nlink != 1
+                or (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns)
+                != (final.st_dev, final.st_ino, final.st_size, final.st_mtime_ns, final.st_ctime_ns)
+                or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)):
+                raise StateError(f"checkpoint read target changed while reading: {path.name}")
+            return b"".join(chunks)
+        finally:
+            os.close(fd)
+
+
 def open_directory_path(path: Path, *, create: bool) -> int:
     """Open a directory from the filesystem root without following link ancestors."""
     absolute = path.absolute()
-    if os.name == "nt" or not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
-        if create:
-            absolute.mkdir(parents=True, exist_ok=True)
-        resolved = absolute.resolve()
-        if resolved != absolute:
-            raise StateError(f"state directory contains a symlink alias: {absolute}")
-        return os.open(absolute, os.O_RDONLY)
+    if os.name == "nt":
+        return fs.open_directory_path(absolute, create=create)
     parts = absolute.parts
     if not parts or parts[0] != os.path.sep:
         raise StateError("state directory must be absolute")
@@ -435,52 +547,55 @@ def open_directory_path(path: Path, *, create: bool) -> int:
 def atomic_write(path: Path, text: str) -> None:
     parent_fd = open_directory_path(path.parent, create=True)
     temporary_name = f".{path.name}.write-{secrets.token_hex(12)}"
+    created = False
     try:
         try:
-            existing = os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
+            existing = fs.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
         except FileNotFoundError:
             existing = None
         if existing is not None and (
             not stat.S_ISREG(existing.st_mode) or existing.st_nlink != 1
         ):
             raise StateError(f"state target must be a regular non-linked file: {path}")
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
-        descriptor = os.open(temporary_name, flags, 0o600, dir_fd=parent_fd)
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | fs.O_NOFOLLOW
+        if os.name == "nt":
+            flags |= fs.O_DELETE
+        descriptor = fs.open(temporary_name, flags, 0o600, dir_fd=parent_fd)
+        created = True
         try:
-            with os.fdopen(descriptor, "w", encoding="utf-8", closefd=False) as handle:
+            with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n", closefd=False) as handle:
                 handle.write(text)
                 handle.flush()
                 os.fsync(descriptor)
+            if os.name == "nt":
+                fs.rename_open(descriptor, path.name, dst_dir_fd=parent_fd, replace=True)
+            else:
+                os.replace(temporary_name, path.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
+            temporary_name = ""
         finally:
             os.close(descriptor)
-        os.replace(temporary_name, path.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
-        temporary_name = ""
-        os.fsync(parent_fd)
+        flush_directory(parent_fd)
     finally:
-        if temporary_name:
+        if temporary_name and created:
             try:
-                os.unlink(temporary_name, dir_fd=parent_fd)
+                fs.unlink(temporary_name, dir_fd=parent_fd)
             except FileNotFoundError:
                 pass
         os.close(parent_fd)
 
 
-def fsync_directory(directory: Path) -> None:
-    """Persist directory entries where the host supports directory fsync."""
-    flags = os.O_RDONLY
-    if hasattr(os, "O_DIRECTORY"):
-        flags |= os.O_DIRECTORY
-    try:
-        descriptor = open_directory_path(directory, create=False)
-    except OSError:
-        if os.name == "nt":
-            return
-        raise
-    try:
+def flush_directory(descriptor: int) -> None:
+    if os.name == "nt":
+        fs.fsync_directory(descriptor)
+    else:
         os.fsync(descriptor)
-    except OSError:
-        if os.name != "nt":
-            raise
+
+
+def fsync_directory(directory: Path) -> None:
+    """Persist directory entries, propagating failures on every host."""
+    descriptor = open_directory_path(directory, create=False)
+    try:
+        flush_directory(descriptor)
     finally:
         os.close(descriptor)
 
@@ -490,7 +605,7 @@ def state_lock(directory: Path) -> Iterator[None]:
     lock = directory / ".state.lock"
     directory_fd = open_directory_path(directory, create=False)
     try:
-        expected = os.stat(lock.name, dir_fd=directory_fd, follow_symlinks=False)
+        expected = fs.stat(lock.name, dir_fd=directory_fd, follow_symlinks=False)
     except FileNotFoundError:
         expected = None
     except OSError as exc:
@@ -503,14 +618,13 @@ def state_lock(directory: Path) -> Iterator[None]:
         if expected.st_nlink != 1:
             os.close(directory_fd)
             raise StateError(f"task lock must not be a hardlink: {lock}")
-    flags = os.O_RDWR | os.O_CREAT
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
+    flags = os.O_RDWR | os.O_CREAT | fs.O_NOFOLLOW
     try:
-        descriptor = os.open(lock.name, flags, 0o600, dir_fd=directory_fd)
+        descriptor = fs.open(lock.name, flags, 0o600, dir_fd=directory_fd)
     except OSError as exc:
         os.close(directory_fd)
         raise StateError(f"cannot open task lock safely: {lock}: {exc}") from exc
+    acquired = False
     try:
         actual = os.fstat(descriptor)
         if not stat.S_ISREG(actual.st_mode) or actual.st_nlink != 1:
@@ -518,7 +632,7 @@ def state_lock(directory: Path) -> Iterator[None]:
         if expected is not None and (actual.st_dev, actual.st_ino) != (expected.st_dev, expected.st_ino):
             raise StateError(f"task lock changed identity during open: {lock}")
         try:
-            current = os.stat(lock.name, dir_fd=directory_fd, follow_symlinks=False)
+            current = fs.stat(lock.name, dir_fd=directory_fd, follow_symlinks=False)
         except OSError as exc:
             raise StateError(f"cannot verify task lock identity after open: {lock}: {exc}") from exc
         if (actual.st_dev, actual.st_ino) != (current.st_dev, current.st_ino):
@@ -527,25 +641,28 @@ def state_lock(directory: Path) -> Iterator[None]:
             if os.name == "nt":
                 import msvcrt
 
+                msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+                acquired = True
                 if os.fstat(descriptor).st_size == 0:
                     os.write(descriptor, b"0")
+                    os.fsync(descriptor)
                     os.lseek(descriptor, 0, os.SEEK_SET)
-                msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
             else:
                 import fcntl
 
                 fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
         except (BlockingIOError, OSError) as exc:
             raise StateError(f"task state is busy: {lock}") from exc
         yield
     finally:
         try:
-            if os.name == "nt":
+            if acquired and os.name == "nt":
                 import msvcrt
 
                 os.lseek(descriptor, 0, os.SEEK_SET)
                 msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
-            else:
+            elif acquired:
                 import fcntl
 
                 fcntl.flock(descriptor, fcntl.LOCK_UN)
@@ -559,7 +676,7 @@ def check_event_target(directory: Path) -> Path:
     path = directory / "events.jsonl"
     directory_fd = open_directory_path(directory, create=False)
     try:
-        metadata = os.stat(path.name, dir_fd=directory_fd, follow_symlinks=False)
+        metadata = fs.stat(path.name, dir_fd=directory_fd, follow_symlinks=False)
     except FileNotFoundError:
         return path
     finally:
@@ -583,9 +700,12 @@ def append_event(directory: Path, event: str, actor: str, revision: int, details
     path = directory / "events.jsonl"
     directory_fd = open_directory_path(directory, create=False)
     try:
-        expected = os.stat(path.name, dir_fd=directory_fd, follow_symlinks=False)
+        expected = fs.stat(path.name, dir_fd=directory_fd, follow_symlinks=False)
     except FileNotFoundError:
         expected = None
+    except BaseException:
+        os.close(directory_fd)
+        raise
     if expected is not None:
         if not stat.S_ISREG(expected.st_mode):
             os.close(directory_fd)
@@ -593,11 +713,9 @@ def append_event(directory: Path, event: str, actor: str, revision: int, details
         if expected.st_nlink != 1:
             os.close(directory_fd)
             raise StateError(f"event log must not be a hardlink: {path}")
-    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | fs.O_NOFOLLOW
     try:
-        descriptor = os.open(path.name, flags, 0o600, dir_fd=directory_fd)
+        descriptor = fs.open(path.name, flags, 0o600, dir_fd=directory_fd)
     except Exception:
         os.close(directory_fd)
         raise
@@ -611,12 +729,12 @@ def append_event(directory: Path, event: str, actor: str, revision: int, details
         except Exception:
             os.close(descriptor)
             raise
-        with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
+        with os.fdopen(descriptor, "a", encoding="utf-8", newline="\n") as handle:
             handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
             handle.flush()
             os.fsync(handle.fileno())
         if expected is None:
-            os.fsync(directory_fd)
+            flush_directory(directory_fd)
     finally:
         os.close(directory_fd)
 
@@ -630,15 +748,19 @@ def validate_event_log(
         path = check_event_target(directory)
     except StateError as exc:
         return [str(exc)]
+    try:
+        content = runtime_read(path, missing_ok=True)
+    except (StateError, OSError, UnicodeError) as exc:
+        return [f"cannot read event log: {exc}"]
     if expected_revision == -1:
-        if path.exists() and path.stat().st_size:
+        if content:
             errors.append("event log must be empty while event_revision is -1")
         return errors
-    if not path.is_file():
+    if content is None:
         return ["event log is missing"]
     previous: int | None = None
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = content.decode("utf-8").splitlines()
     except (OSError, UnicodeError) as exc:
         return [f"cannot read event log: {exc}"]
     if not lines:
@@ -1376,13 +1498,133 @@ def normalize_write_target(target: Any) -> str | None:
 
 
 def write_targets_overlap(left: str, right: str) -> bool:
+    if os.name == "nt":
+        left, right = left.casefold(), right.casefold()
     left_parts = left.split("/")
     right_parts = right.split("/")
     common = min(len(left_parts), len(right_parts))
     return left_parts[:common] == right_parts[:common]
 
 
+def _validate_windows_write_aliases(packages: list[Any], root: Path) -> list[str]:
+    """Inspect active targets through pinned ancestors; never traverse reparse points."""
+    errors: list[str] = []
+    targets: dict[Path, str] = {}
+    inodes: dict[tuple[int, int], str] = {}
+    declared: list[tuple[str, str]] = []
+    root = root.absolute()
+
+    def signature(info):
+        return (info.st_dev, info.st_ino, info.st_mode, info.st_nlink,
+                info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+    def observe(parent, parts, path, package_id):
+        display = path.relative_to(root).as_posix()
+        name = parts[0]
+        try:
+            try:
+                expected = fs.stat(name, dir_fd=parent, follow_symlinks=False)
+            except FileNotFoundError:
+                # Future targets are valid, but absence must survive this observation.
+                target = path.joinpath(*parts[1:])
+                prior = targets.setdefault(target, package_id)
+                if prior != package_id:
+                    errors.append(f"active write-set alias conflict: {target} ({prior}, {package_id})")
+                try:
+                    fs.stat(name, dir_fd=parent, follow_symlinks=False)
+                except FileNotFoundError:
+                    return
+                raise OSError(errno.EAGAIN, "write-set target appeared while inspecting", name)
+            directory = stat.S_ISDIR(expected.st_mode)
+            if len(parts) > 1 and not directory:
+                raise OSError(errno.ENOTDIR, "write-set ancestor is not a directory", name)
+            fd = fs.open(name, os.O_RDONLY | fs.O_NOFOLLOW |
+                         (fs.O_DIRECTORY if directory else fs.O_NONBLOCK), dir_fd=parent)
+            try:
+                opened = os.fstat(fd)
+                if signature(expected) != signature(opened):
+                    raise OSError(errno.EAGAIN, "write-set target changed while opening", name)
+                if fs.canonical_component(fd).casefold() != name.casefold():
+                    errors.append(f"active write-set alias conflict: {path} uses an alternate native name")
+                    return
+                if len(parts) > 1:
+                    observe(fd, parts[1:], path / parts[1], package_id)
+                else:
+                    prior = targets.setdefault(path, package_id)
+                    if prior != package_id:
+                        errors.append(f"active write-set alias conflict: {path} ({prior}, {package_id})")
+                    if directory:
+                        names = sorted(fs.listdir(fd))
+                        for child in names:
+                            observe(fd, (child,), path / child, package_id)
+                        if names != sorted(fs.listdir(fd)):
+                            raise OSError(errno.EAGAIN, "write-set directory changed while inspecting", name)
+                    elif stat.S_ISREG(opened.st_mode):
+                        if opened.st_nlink != 1:
+                            errors.append(f"active write-set hardlink conflict: {path} has link count {opened.st_nlink}")
+                        inode = (opened.st_dev, opened.st_ino)
+                        prior_inode = inodes.setdefault(inode, package_id)
+                        if prior_inode != package_id:
+                            errors.append(f"active write-set hardlink conflict: {path} ({prior_inode}, {package_id})")
+                    else:
+                        raise OSError(errno.EINVAL, "write-set target is not a regular file or directory", name)
+                if (signature(opened) != signature(os.fstat(fd)) or
+                    signature(opened) != signature(fs.stat(name, dir_fd=parent, follow_symlinks=False))):
+                    raise OSError(errno.EAGAIN, "write-set target changed while inspecting", name)
+            finally:
+                os.close(fd)
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                # Preserve the escape diagnostic without resolving or opening a
+                # link target. artifact_stat reads only this native symlink's
+                # substitute name; junctions/other tags remain rejected.
+                escape = False
+                try:
+                    _, link = fs.artifact_stat(name, dir_fd=parent)
+                    if link is not None:
+                        target = link[4:].decode("utf-8")
+                        if target.startswith("\\??\\"):
+                            target = target[4:]
+                        candidate = Path(os.path.abspath(path.parent / target))
+                        escape = not candidate.is_relative_to(root)
+                except (OSError, UnicodeError):
+                    pass
+                if escape:
+                    errors.append(f"active write-set target escapes workspace through symlink: {package_id}:{display}")
+                else:
+                    errors.append(f"active directory write-set contains a symlink alias: {package_id}:{display}")
+            else:
+                errors.append(f"cannot inspect active directory write-set safely: {package_id}:{display}: {exc}")
+
+    try:
+        descriptor = open_directory_path(root, create=False)
+    except (OSError, StateError) as exc:
+        return [f"cannot inspect active directory write-set safely: {exc}"]
+    try:
+        for package in packages:
+            if not isinstance(package, dict) or package.get("status") != "active":
+                continue
+            write_set = package.get("write_set")
+            if not isinstance(write_set, list):
+                continue
+            for raw in write_set:
+                normalized = normalize_write_target(raw)
+                if normalized is not None:
+                    package_id = str(package.get("id", "?"))
+                    for prior_target, prior_id in declared:
+                        if prior_id != package_id and write_targets_overlap(prior_target, normalized):
+                            errors.append(f"active write-set conflict: {normalized} ({prior_id}, {package_id})")
+                    declared.append((normalized, package_id))
+                    parts = tuple(normalized.split("/"))
+                    observe(descriptor, parts, root / parts[0], package_id)
+    finally:
+        os.close(descriptor)
+    return errors
+
+
 def validate_write_aliases(packages: list[Any], root: Path) -> list[str]:
+    if os.name == "nt":
+        return _validate_windows_write_aliases(packages, root)
     errors: list[str] = []
     active_targets: dict[Path, str] = {}
     active_inodes: dict[tuple[int, int], str] = {}
@@ -1722,7 +1964,7 @@ def save_mutation(
                 f"stale task: expected {expected_task_id}, found {pointed.get('task_id')}"
             )
         check_event_target(path.parent)
-        current = json.loads(path.read_text(encoding="utf-8"))
+        current = json.loads(runtime_read(path).decode("utf-8"))
         current_errors = validate_state(current, root, allow_workspace_drift=True)
         if current_errors:
             raise StateError("cannot mutate invalid state: " + "; ".join(current_errors))
@@ -1754,7 +1996,7 @@ def save_mutation(
             current["event_revision"] = current["revision"]
             atomic_write(path, json.dumps(current, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
         except (OSError, StateError) as exc:
-            current = json.loads(path.read_text(encoding="utf-8"))
+            current = json.loads(runtime_read(path).decode("utf-8"))
             current["_runtime_warnings"] = [f"state persisted but event synchronization failed: {exc}"]
         return current
 
@@ -1813,7 +2055,7 @@ def initial_handoff(state: dict[str, Any], actor: str) -> dict[str, Any]:
 
 def validate_replacement_target(root: Path, args: argparse.Namespace) -> None:
     """Compare opaque old identity only; never restore or migrate historical state."""
-    if not (root / ".longtask/state.json").exists():
+    if runtime_read(root / ".longtask/state.json", missing_ok=True) is None:
         raise StateError("--replace-active requires an existing active task")
     expected = (args.expected_task_id, args.expected_revision, args.expected_artifact_digest)
     if None in expected:
@@ -1828,7 +2070,7 @@ def validate_replacement_target(root: Path, args: argparse.Namespace) -> None:
 
 def cmd_init(args: argparse.Namespace) -> dict[str, Any]:
     require_actor(args.actor)
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     directory = task_dir(root, args.task_id)
     descriptor = open_directory_path(directory, create=True)
     os.close(descriptor)
@@ -1841,11 +2083,11 @@ def cmd_init(args: argparse.Namespace) -> dict[str, Any]:
         "expected_artifact_digest": args.expected_artifact_digest,
     }
     with state_lock(directory):
-        check_runtime_directory(directory, reclaim_temporary=True)
-        if (directory / ".finishing.json").exists():
+        names = check_runtime_directory(directory, reclaim_temporary=True)
+        if ".finishing.json" in names:
             raise StateError("checkpoint cleanup interrupted; retry finish before init")
-        if pending_path.exists():
-            pending = json.loads(pending_path.read_text(encoding="utf-8"))
+        if pending_path.name in names:
+            pending = json.loads(runtime_read(pending_path).decode("utf-8"))
             if not isinstance(pending, dict) or pending.get("request") != request:
                 raise StateError("interrupted initialization requires the identical request and prior active task CAS")
             state = pending.get("state")
@@ -1855,11 +2097,11 @@ def cmd_init(args: argparse.Namespace) -> dict[str, Any]:
             if state["artifact_digest"] != artifact_digest(root) or state["head_commit"] != git_head(root):
                 raise StateError("pending initialization workspace has changed; reconcile before retry")
             return publish_initialization(directory, state, args.actor)
-        if path.exists() and not args.replace_active:
+        if path.name in names and not args.replace_active:
             raise StateError("an unfinished checkpoint already exists; finish it or explicitly --replace-active")
         if args.replace_active:
             validate_replacement_target(root, args)
-        elif (directory / "events.jsonl").exists():
+        elif "events.jsonl" in names:
             raise StateError("checkpoint journal exists without state; reconcile before initialization")
         head = git_head(root)
         phase = {
@@ -1913,7 +2155,11 @@ def publish_initialization(directory: Path, state: dict[str, Any], actor: str) -
         append_event(directory, "initialized", actor, 0, {"mode": state["mode"]})
         state["event_revision"] = 0
         atomic_write(path, json.dumps(state, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
-        (directory / ".initializing.json").unlink()
+        descriptor = open_directory_path(directory, create=False)
+        try:
+            fs.unlink(".initializing.json", dir_fd=descriptor)
+        finally:
+            os.close(descriptor)
         fsync_directory(directory)
     except (OSError, StateError) as exc:
         raise StateError("initialization synchronization is incomplete; retry the identical init request") from exc
@@ -1923,18 +2169,18 @@ def publish_initialization(directory: Path, state: dict[str, Any], actor: str) -
 def cmd_finish(args: argparse.Namespace) -> dict[str, Any]:
     """Forget execution history only after its current result has converged into project content."""
     require_actor(args.actor)
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     directory = task_dir(root, args.expected_task_id)
     with state_lock(directory):
-        check_runtime_directory(directory, reclaim_temporary=True)
+        names = check_runtime_directory(directory, reclaim_temporary=True)
         marker = directory / ".finishing.json"
-        if (directory / ".initializing.json").exists():
+        if ".initializing.json" in names:
             raise StateError("checkpoint initialization interrupted; retry init before finish")
-        recovering = marker.exists()
+        recovering = marker.name in names
         if recovering:
-            if (directory / "state.json").exists():
+            if "state.json" in names:
                 raise StateError("cleanup marker conflicts with active state; reconcile without deleting either")
-            state = json.loads(marker.read_text(encoding="utf-8"))
+            state = json.loads(runtime_read(marker).decode("utf-8"))
         else:
             _, state = load_state(root)
         if not isinstance(state, dict):
@@ -1959,16 +2205,16 @@ def cmd_finish(args: argparse.Namespace) -> dict[str, Any]:
         descriptor = open_directory_path(directory, create=False)
         try:
             if not recovering:
-                os.replace("state.json", ".finishing.json", src_dir_fd=descriptor, dst_dir_fd=descriptor)
-                os.fsync(descriptor)
+                fs.replace("state.json", ".finishing.json", src_dir_fd=descriptor, dst_dir_fd=descriptor)
+                flush_directory(descriptor)
             try:
-                os.unlink("events.jsonl", dir_fd=descriptor)
+                fs.unlink("events.jsonl", dir_fd=descriptor)
             except FileNotFoundError:
                 if not recovering:
                     raise
-            os.fsync(descriptor)
-            os.unlink(".finishing.json", dir_fd=descriptor)
-            os.fsync(descriptor)
+            flush_directory(descriptor)
+            fs.unlink(".finishing.json", dir_fd=descriptor)
+            flush_directory(descriptor)
         except OSError as exc:
             raise StateError("checkpoint cleanup incomplete; retry finish with the same identity: " + str(exc)) from exc
         finally:
@@ -2041,7 +2287,7 @@ def package_lease_expired(package: dict[str, Any]) -> bool:
 
 
 def cmd_checkpoint(args: argparse.Namespace) -> dict[str, Any]:
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     raw_handoff = getattr(args, "handoff_data", None)
     payload = _parse_object(raw_handoff, "handoff") if raw_handoff is not None else None
     if payload is not None and args.next_action is not None:
@@ -2084,7 +2330,7 @@ def cmd_checkpoint(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_approve(args: argparse.Namespace) -> dict[str, Any]:
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     digest = artifact_digest(root)
     head = git_head(root)
 
@@ -2133,7 +2379,7 @@ def cmd_approve(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_transition(args: argparse.Namespace) -> dict[str, Any]:
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     digest = artifact_digest(root)
     head = git_head(root)
 
@@ -2182,7 +2428,7 @@ def _parse_object(raw: str, label: str) -> dict[str, Any]:
 
 def cmd_handoff(args: argparse.Namespace) -> dict[str, Any]:
     """Atomically freeze the next window's role, target, exit checks, and branches."""
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     payload = _parse_object(args.data, "handoff")
     digest = artifact_digest(root)
     head = git_head(root)
@@ -2215,7 +2461,7 @@ def cmd_handoff(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_package(args: argparse.Namespace) -> dict[str, Any]:
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     package = _parse_object(args.data, "package")
     package_id = package.get("id")
     if not isinstance(package_id, str) or not package_id:
@@ -2397,7 +2643,7 @@ def block_dependency_closure(packages: list[dict[str, Any]], failed_id: str) -> 
 
 
 def cmd_evidence(args: argparse.Namespace) -> dict[str, Any]:
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     if args.package_id and not args.check_id:
         raise StateError("package evidence requires --check-id")
     digest = artifact_digest(root)
@@ -2544,7 +2790,7 @@ def cmd_evidence(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_blocker(args: argparse.Namespace) -> dict[str, Any]:
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     digest = artifact_digest(root)
     head = git_head(root)
     if not task_id_valid(args.blocker_id):
@@ -2608,7 +2854,7 @@ def cmd_blocker(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_review(args: argparse.Namespace) -> dict[str, Any]:
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     if args.status == "approved":
         raise StateError("use approve --scope review for an approved review")
     digest = artifact_digest(root)
@@ -2650,7 +2896,7 @@ def cmd_review(args: argparse.Namespace) -> dict[str, Any]:
 
 def cmd_modify(args: argparse.Namespace) -> dict[str, Any]:
     """Enter an authorized L4 change without replacing the task or unrelated packages."""
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     if not args.reason.strip():
         raise StateError("modify requires a non-empty reason")
     selected = set(args.package_id)
@@ -2688,7 +2934,7 @@ def cmd_modify(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_goal(args: argparse.Namespace) -> dict[str, Any]:
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     if not args.goal.strip():
         raise StateError("goal must be non-empty")
     digest = artifact_digest(root)
@@ -2733,7 +2979,7 @@ def cmd_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_reconcile_events(args: argparse.Namespace) -> dict[str, Any]:
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     require_actor(args.actor)
     tasks_directory = root / ".longtask"
     with state_lock(tasks_directory):
@@ -2742,7 +2988,7 @@ def cmd_reconcile_events(args: argparse.Namespace) -> dict[str, Any]:
         if pointed.get("task_id") != args.expected_task_id:
             raise StateError(f"stale task: expected {args.expected_task_id}, found {pointed.get('task_id')}")
         check_event_target(path.parent)
-        state = json.loads(path.read_text(encoding="utf-8"))
+        state = json.loads(runtime_read(path).decode("utf-8"))
         if state.get("task_id") != args.expected_task_id:
             raise StateError(f"stale task: expected {args.expected_task_id}, found {state.get('task_id')}")
         if state.get("revision") != args.expected_revision:
@@ -2872,13 +3118,13 @@ def build_resume_options(
 
 
 def observe_route(args: argparse.Namespace, observation: dict[str, Any]) -> dict[str, Any]:
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     directory = root / ".longtask"
     try:
-        check_runtime_directory(directory)
+        names = check_runtime_directory(directory)
     except StateError as exc:
         return {"entry": "error", "reason": str(exc)}
-    if any((directory / name).exists() for name in ("state.json", ".initializing.json", ".finishing.json", "events.jsonl")):
+    if names & {"state.json", ".initializing.json", ".finishing.json", "events.jsonl"}:
         try:
             path, state = load_state(root)
         except StateError as exc:
@@ -3080,17 +3326,17 @@ def diagnose_observation(route: dict[str, Any], observation: dict[str, Any]) -> 
 
 def read_query(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
     """One shared observation, followed by detection of concurrent changes; no snapshot isolation."""
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     observation: dict[str, Any] = {}
     try:
         # Capture bytes through the same safe loader, without creating a lock or runtime files.
         check_runtime_directory(root / ".longtask")
         state_path = root / ".longtask/state.json"
-        initial_bytes = state_path.read_bytes() if state_path.exists() else None
+        initial_bytes = runtime_read(state_path, missing_ok=True)
         route = observe_route(args, observation)
         diagnostics = diagnose_observation(route, observation)
         check_runtime_directory(root / ".longtask")
-        final_bytes = state_path.read_bytes() if state_path.exists() else None
+        final_bytes = runtime_read(state_path, missing_ok=True)
         changed = initial_bytes != final_bytes
         if "state" in observation:
             changed = changed or artifact_digest(root) != observation["manifest"]["artifact_digest"]
@@ -3343,7 +3589,7 @@ def summarize_output(output: dict[str, Any]) -> dict[str, Any]:
 
 
 def cmd_validate(args: argparse.Namespace) -> dict[str, Any]:
-    root = Path(args.root).resolve()
+    root = Path(args.root).absolute()
     path, state = load_state(root)
     errors = validate_state(state, root)
     if errors:
@@ -3490,6 +3736,11 @@ def parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    if os.name == "nt":
+        # Piped CRT streams otherwise inherit the ANSI code page. JSON views and
+        # their byte budgets use UTF-8, including names outside that code page.
+        sys.stdout.reconfigure(encoding="utf-8", newline="\n")
+        sys.stderr.reconfigure(encoding="utf-8", newline="\n")
     args = parser().parse_args()
     try:
         output = args.function(args)

@@ -6,9 +6,10 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/scripts/longtask_hooks.py\"",
+            "command": "/bin/sh \"${PLUGIN_ROOT}/scripts/run_hook.sh\"",
             "timeout": 5,
-            "statusMessage": "Checking longtask compaction exit"
+            "statusMessage": "Checking longtask compaction exit",
+            "commandWindows": "& (Join-Path $env:PLUGIN_ROOT 'scripts/run_hook.ps1')"
           }
         ]
       }
@@ -19,10 +20,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/scripts/longtask_hooks.py\"",
+            "command": "/bin/sh \"${PLUGIN_ROOT}/scripts/run_hook.sh\"",
             "timeout": 5,
             "additionalContextLimit": 2500,
-            "statusMessage": "Recovering longtask session exit"
+            "statusMessage": "Recovering longtask session exit",
+            "commandWindows": "& (Join-Path $env:PLUGIN_ROOT 'scripts/run_hook.ps1')"
           }
         ]
       }

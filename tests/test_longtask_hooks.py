@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
+import shutil
 import unittest
 from unittest import mock
 
@@ -16,6 +18,71 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import longtask_hooks as hooks
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+class HookCommandTests(unittest.TestCase):
+    """Exercise delivered commands with hostile cwd and Python environment inputs."""
+
+    def invoke_command(self, binding=True, *, raw_binding=None, legacy_shell_encoding=False):
+        with tempfile.TemporaryDirectory(prefix="longtask hook '$()-") as temp:
+            base = Path(temp)
+            plugin = base / "plugin '$()"
+            shutil.copytree(ROOT / 'scripts', plugin / 'scripts',
+                            ignore=shutil.ignore_patterns('__pycache__'))
+            cwd = base / 'workspace'
+            cwd.mkdir()
+            (cwd / '.longtask').mkdir()
+            (cwd / '.longtask/state.json').write_text('{}')
+            (cwd / 'json.py').write_text("raise RuntimeError('cwd import poison')")
+            (cwd / 'longtask_state.py').write_text("raise RuntimeError('path import poison')")
+            data = base / 'plugin data'
+            data.mkdir()
+            env = dict(os.environ, PLUGIN_ROOT=str(plugin), PLUGIN_DATA=str(data), PYTHONPATH=str(cwd),
+                       PYTHONHOME=str(cwd), PYTHONUSERBASE=str(cwd))
+            if binding:
+                (data / 'python-path').write_bytes(
+                    (sys.executable + '\n').encode('utf-8') if raw_binding is None else raw_binding)
+            hook = json.loads((ROOT / 'hooks/hooks.json').read_text())['hooks']['PreCompact'][0]['hooks'][0]
+            if os.name == 'nt':
+                shell = shutil.which('pwsh') or shutil.which('powershell')
+                self.assertIsNotNone(shell, 'native Windows command shell is required')
+                command = hook['commandWindows']
+                if legacy_shell_encoding:
+                    command = '$OutputEncoding = [Console]::OutputEncoding = [Text.Encoding]::GetEncoding(936); ' + command
+                args = [shell, '-NoProfile', '-NonInteractive', '-Command', command]
+            else:
+                args = ['/bin/sh', '-c', hook['command']]
+            event = {'hook_event_name': 'PreCompact', 'trigger': 'auto', 'cwd': str(cwd)}
+            result = subprocess.run(args, input=json.dumps(event).encode() + b'\n',
+                                    capture_output=True, env=env, cwd=cwd, timeout=5)
+            self.assertFalse(list(plugin.rglob('*.pyc')), 'hook must not write bytecode into its package')
+            return result
+
+    def test_bound_command_ignores_python_environment_and_handles_literal_paths(self):
+        result = self.invoke_command()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIs(json.loads(result.stdout)['continue'], True)
+
+    @unittest.skipUnless(os.name == 'nt', 'native PowerShell pipe encoding boundary')
+    def test_bound_command_preserves_unicode_with_legacy_shell_encoding(self):
+        result = self.invoke_command(legacy_shell_encoding=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('压缩', json.loads(result.stdout)['systemMessage'])
+
+    def test_invalid_bindings_fail_without_running_the_bridge(self):
+        for raw in (b'', b'python3\n', str(sys.executable).encode(),
+                    (sys.executable + '\nextra\n').encode(),
+                    str(sys.executable).encode() + b'\x00\n', b'/' + b'x' * 4096 + b'\n'):
+            with self.subTest(binding=raw[:40]):
+                result = self.invoke_command(raw_binding=raw)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, b'')
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows binding has no executable alias fallback')
+    def test_windows_missing_binding_fails_without_alias_fallback(self):
+        result = self.invoke_command(binding=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(b'python-path', result.stderr)
 
 
 class LongtaskHookTests(unittest.TestCase):

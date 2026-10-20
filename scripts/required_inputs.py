@@ -27,16 +27,27 @@ import knowledge_context as kc
 import longtask_state as runtime
 
 MAX_REFS = 128
+MAX_CHECKPOINT_BYTES = 16 * 1024 * 1024
+CHECKPOINT_PATHS = {'.longtask/state.json', '.longtask/events.jsonl'}
 TRUST = kc.TRUST
 Error = kc.KnowledgeError
 fail = kc.fail
 
 
+class InputWorkspace(kc.Workspace):
+    """Checkpoint pins have a separate bound; knowledge/source limits stay intact."""
+    def file_limit(self, path):
+        return MAX_CHECKPOINT_BYTES if path in CHECKPOINT_PATHS else super().file_limit(path)
+
+
 def safe_path(value):
+    first = value.split('/')[0]
+    if os.name == 'nt':
+        first = first.casefold()
     if (not value or len(value.encode()) > kc.MAX_REF_BYTES or value.startswith('/')
             or '\\' in value or any(ord(c) < 32 or ord(c) == 127 for c in value)
             or any(p in {'', '.', '..'} for p in value.split('/'))
-            or value.split('/')[0] == '.git'):
+            or first == '.git'):
         fail('invalid_path', 'Expected a bounded repository-relative path without traversal')
     return value
 
@@ -48,10 +59,11 @@ def safe_read(workspace, path):
     fd = workspace.open_path(path)
     try:
         before = os.fstat(fd)
-        if not stat.S_ISREG(before.st_mode):
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
             fail('unsafe_path', f'Input is not a regular file: {path}')
-        if before.st_size > kc.MAX_FILE_BYTES:
-            fail('input_too_large', f'Input exceeds {kc.MAX_FILE_BYTES} bytes: {path}')
+        limit = workspace.file_limit(path)
+        if before.st_size > limit:
+            fail('input_too_large', f'Input exceeds {limit} bytes: {path}')
         data = workspace.read_bytes(fd, path)
         os.lseek(fd, 0, os.SEEK_SET)
         if (kc.fingerprint(before) != kc.fingerprint(os.fstat(fd))
@@ -60,7 +72,10 @@ def safe_read(workspace, path):
         if prior and (prior[0] != kc.fingerprint(before) or prior[1] != kc.sha256(data)):
             fail('read_race', f'Input changed between selected reads: {path}')
         workspace.remember(workspace.files, path, kc.fingerprint(before), kc.sha256(data), fd)
-        workspace.total_bytes += len(data)
+        # Exactly two internal files can use the checkpoint allowance. Do not
+        # charge their manifests/history to the separate source/knowledge scan.
+        if path not in CHECKPOINT_PATHS:
+            workspace.total_bytes += len(data)
         if workspace.total_bytes > kc.MAX_SCAN_BYTES:
             fail('input_too_large', 'Selected inputs exceed the aggregate read limit')
         return data
@@ -83,7 +98,7 @@ def decode(value):
 class Session:
     """Pin selected inputs and reobserve state/version immediately before output."""
     def __init__(self, root):
-        self.workspace = kc.Workspace(root)
+        self.workspace = InputWorkspace(root)
         self.observation = None
         self.diagnostics = None
         self.state_observed = False
@@ -149,7 +164,10 @@ def symbol(session, ref, expected=None):
         fail('invalid_reference', 'Code reference requires path#Qualified.symbol')
     path, name = map(decode, value.split('#'))
     safe_path(path)
-    if path.split('/')[0] == '.longtask':
+    first = path.split('/')[0]
+    if os.name == 'nt':
+        first = first.casefold()
+    if first == '.longtask':
         fail('invalid_path', 'Checkpoint files are not source code')
     if not path.endswith('.py'):
         fail('unsupported_language', 'Only Python AST class/function symbols are supported')
@@ -425,6 +443,9 @@ def parse_expect(values):
 
 
 def main(argv=None):
+    if os.name == "nt":
+        sys.stdout.reconfigure(encoding="utf-8", newline="\n")
+        sys.stderr.reconfigure(encoding="utf-8", newline="\n")
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
     fetch = commands.add_parser('resolve')

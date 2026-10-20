@@ -7,12 +7,16 @@ Standalone so a reviewed copy can run without replacing an active plugin.
 from __future__ import annotations
 
 import json
+import os
 import sys
 
 MAX_EVENT_BYTES = 65536
 
 
 def main():
+    if os.name == 'nt':
+        sys.stdout.reconfigure(encoding='utf-8', newline='\n')
+        sys.stderr.reconfigure(encoding='utf-8', newline='\n')
     # This command is exclusively a PreCompact handler. Even damaged input must
     # preserve the user's veto; never echo untrusted event contents.
     diagnostic = False
@@ -32,7 +36,7 @@ def main():
             'longtask 已拒绝本次压缩。本钩子不创建接续会话；请核对实际接管状态及最近保存的恢复输入。'
             + (' 回调输入无法核对，仍保留禁压缩要求。' if diagnostic else '')
         ),
-    }, ensure_ascii=False))
+    }, ensure_ascii=True))
     return 0
 
 

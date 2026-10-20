@@ -603,7 +603,7 @@
     },
     {
       "id": "automatic_slice_handoff",
-      "prompt": "继续当前longtask；授权按任务片段自动创建接续对话，压缩恢复后核对状态并在安全出口交接，不回灌旧过程。",
+      "prompt": "继续当前longtask；授权按需自动创建接续对话。核对剩余验收、并发机会和当前预算，在需要新上下文的安全出口交接，不回灌旧过程。",
       "should_trigger": true,
       "expected_entry": "continue",
       "expected_skill": "longtask",

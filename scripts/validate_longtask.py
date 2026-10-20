@@ -8,6 +8,7 @@ import ast
 import fnmatch
 import json
 import math
+import os
 import re
 import subprocess
 import sys
@@ -19,7 +20,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_VERSION = "4.6.0"
+SKILL_VERSION = "4.6.2"
 SKILL_NAMES = ("longtask",)
 MODE_REFERENCES = (
     "references/新建项目.md", "references/既有项目接入.md", "references/任务续接.md",
@@ -42,6 +43,8 @@ REQUIRED_FILES = (
     "scripts/build_release.py",
     "scripts/longtask_state.py",
     "scripts/longtask_hooks.py",
+    "scripts/run_hook.sh",
+    "scripts/run_hook.ps1",
     "scripts/precompact_guard.py",
     "scripts/precompact_handoff.py",
     "references/全局接续.md",
@@ -134,11 +137,16 @@ def check_release_archive(errors: list[str], *, installed: bool = False) -> dict
                 # Compare the extracted manifest to the manifest rebuilt from the
                 # installed closure. Authenticity comes from trusted extraction.
                 try:
-                    embedded = json.loads(read_text(ROOT / "RELEASE-MANIFEST.json"))
+                    embedded = json.loads(read_text(ROOT / "release-integrity.json"))
                     with zipfile.ZipFile(Path(temporary) / "release.zip") as rebuilt:
-                        expected = json.loads(rebuilt.read("longtask/RELEASE-MANIFEST.json"))
+                        expected = json.loads(rebuilt.read("longtask/release-integrity.json"))
                     if embedded != expected:
                         fail(errors, "installed release manifest does not match the installed closure")
+                    elif os.name != "nt":
+                        for entry in expected["source_entries"]:
+                            metadata = os.stat(ROOT / entry["path"], follow_symlinks=False)
+                            if bool(metadata.st_mode & 0o111) != bool(entry["mode"] & 0o111):
+                                fail(errors, f"installed executable mode does not match: {entry['path']}")
                 except (OSError, ValueError, KeyError, zipfile.BadZipFile) as exc:
                     fail(errors, f"installed release manifest verification failed: {exc}")
     except subprocess.TimeoutExpired:
@@ -1303,7 +1311,9 @@ def check_compaction_hooks(errors: list[str]) -> None:
             fail(errors, f"{event} requires one command consumer")
             continue
         hook = hooks[0]
-        if (hook.get("type") != "command" or hook.get("command") != 'python3 "${PLUGIN_ROOT}/scripts/longtask_hooks.py"'
+        if (hook.get("type") != "command"
+                or hook.get("command") != '/bin/sh "${PLUGIN_ROOT}/scripts/run_hook.sh"'
+                or hook.get("commandWindows") != "& (Join-Path $env:PLUGIN_ROOT 'scripts/run_hook.ps1')"
                 or hook.get("async", False) is not False):
             fail(errors, f"{event} must synchronously consume the quoted bundled bridge")
         timeout = hook.get("timeout")

@@ -265,6 +265,62 @@ class RequiredInputsTests(unittest.TestCase):
         self.write('.longtask/state.json', '{')
         self.error('invalid_state', lambda: self.resolve(['a.md']))
 
+    def test_large_checkpoint_recovers_selected_inputs_with_bounded_output(self):
+        self.write('docs/ARCHITECTURE.md', '# Current contract\n')
+        state = self.init()
+        state = self.mutation(state, 'package', '--data', json.dumps(self.package('one')))
+        frame = {k: v for k, v in state['handoff'].items() if k in ri.runtime.HANDOFF_INPUT_KEYS}
+        frame['required_inputs'] = ['state:goal', 'work_package:one']
+        frame['reason'] = 'Historical checkpoint detail; ' * 500
+        self.mutation(state, 'handoff', '--data', json.dumps(frame))
+        # Preserve real CLI-created state and event semantics, changing only
+        # serialization size to reproduce a multi-MiB baseline/history payload.
+        for name, size in [('state.json', 5 * 1024 * 1024), ('events.jsonl', 1024 * 1024)]:
+            path = self.root / '.longtask' / name
+            path.write_bytes(b' ' * size + path.read_bytes())
+        before = {p.name: p.read_bytes() for p in (self.root / '.longtask').iterdir() if p.is_file()}
+        result = self.resolve([], from_handoff=True, budget=4096)
+        self.assertTrue(result['complete'])
+        self.assertEqual(result['inputs'][0]['value'], state['goal'])
+        self.assertEqual(result['inputs'][1]['value']['id'], 'one')
+        result = self.resolve(['state:goal', 'state:current'], budget=4096)
+        self.assertFalse(result['complete'])
+        self.assertIn('state:current', result['unloaded'])
+        self.assertTrue(result['inputs'][0]['loaded'])
+        self.assertLessEqual(len(ri.kc.encoded_json(result)) + 1, 4096)
+        self.assertEqual(before, {p.name: p.read_bytes() for p in (self.root / '.longtask').iterdir() if p.is_file()})
+
+    def test_checkpoint_allowance_does_not_expand_source_limits(self):
+        for name in ['.longtask/state.json', '.longtask/events.jsonl', 'source.py']:
+            with self.subTest(name=name):
+                workspace = ri.InputWorkspace(str(self.root))
+                try:
+                    limit = ri.MAX_CHECKPOINT_BYTES if name in ri.CHECKPOINT_PATHS else ri.kc.MAX_FILE_BYTES
+                    path = self.write(name, ' ' * limit)
+                    self.assertEqual(len(ri.safe_read(workspace, name)), limit)
+                    workspace.verify()
+                    with path.open('ab') as stream:
+                        stream.write(b' ')
+                    self.error('input_too_large', lambda: ri.safe_read(workspace, name))
+                finally:
+                    workspace.close()
+
+    def test_large_checkpoint_pins_still_reject_concurrent_byte_changes(self):
+        self.init()
+        for name in ['state.json', 'events.jsonl']:
+            path = self.root / '.longtask' / name
+            path.write_bytes(b' ' * (1024 * 1024) + path.read_bytes())
+            real = ri.state_field
+
+            def changing(session, ref):
+                result = real(session, ref)
+                with path.open('ab') as stream:
+                    stream.write(b' ')
+                return result
+
+            with self.subTest(name=name), mock.patch.object(ri, 'state_field', side_effect=changing):
+                self.error('read_race', lambda: self.resolve(['state:goal']))
+
     def test_failed_package_shorthand_is_loaded_but_never_passed(self):
         state = self.init()
         state = self.mutation(state, 'package', '--data', json.dumps(self.package('one',

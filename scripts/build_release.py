@@ -13,12 +13,26 @@ import secrets
 import stat
 import sys
 import tempfile
+import unicodedata
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any, NamedTuple
 
+if os.name == "nt":
+    import windows_fs as fs
+else:
+    fs = os
+
+DIRECTORY_FLAGS = os.O_RDONLY | fs.O_DIRECTORY | fs.O_NOFOLLOW
+# The release mode is portable metadata, not the host filesystem's st_mode.
+# Preserve the five executable entrypoints in the existing release closure.
+EXECUTABLE_FILES = frozenset({
+    "scripts/build_release.py", "scripts/longtask_state.py", "scripts/run_forward_evals.py",
+    "scripts/run_skill_evals.py", "scripts/validate_longtask.py",
+})
+
 FIXED_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
-EMBEDDED_MANIFEST = "RELEASE-MANIFEST.json"
+EMBEDDED_MANIFEST = "release-integrity.json"
 MANIFEST_NAME = "release-manifest.json"
 ALLOWED_MANIFEST_FIELDS = {
     "schema_version",
@@ -77,9 +91,52 @@ def clean_relative_path(raw: str, field: str) -> str:
     ):
         raise ReleaseError(f"unsafe or non-canonical {field} path: {raw!r}")
     for part in path.parts:
-        if ":" in part or part.rstrip(" .") != part or WINDOWS_RESERVED.fullmatch(part):
+        if (any(ord(char) < 32 or char in '<>:"|?*' for char in part)
+            or part.rstrip(" .") != part or WINDOWS_RESERVED.fullmatch(part)):
             raise ReleaseError(f"non-portable {field} path: {raw!r}")
     return raw
+
+
+def release_mode(relative: str) -> int:
+    return 0o755 if relative in EXECUTABLE_FILES else 0o644
+
+
+def validate_portable_tree(files, directories=()) -> None:
+    """Reject component aliases and file/directory conflicts before writing."""
+    seen: dict[tuple[str, ...], tuple[tuple[str, ...], bool]] = {}
+    for relative, is_directory in [(path, False) for path in files] + [(path, True) for path in directories]:
+        parts = PurePosixPath(clean_relative_path(relative, "portable closure")).parts
+        for length in range(1, len(parts) + 1):
+            spelling = parts[:length]
+            key = tuple(unicodedata.normalize("NFC", part.casefold()) for part in spelling)
+            directory = is_directory or length < len(parts)
+            previous = seen.get(key)
+            if previous is not None and (previous != (spelling, directory) or not directory):
+                raise ReleaseError(f"portable path collision or file/directory conflict: {relative}")
+            seen[key] = (spelling, directory)
+
+
+def fsync_directory(fd: int) -> None:
+    if os.name == "nt":
+        fs.fsync_directory(fd)
+    else:
+        os.fsync(fd)
+
+
+def set_file_mode(fd: int, mode: int) -> None:
+    # Windows modes are verified from the explicit release contract; ACLs are
+    # applied at creation by the backend. CRT st_mode cannot encode POSIX x bits.
+    if os.name != "nt":
+        os.fchmod(fd, mode)
+
+
+def publish(fd: int, source: str, target: str, parent_fd: int, *, replace=False) -> None:
+    if os.name == "nt":
+        fs.rename_open(fd, target, dst_dir_fd=parent_fd, replace=replace)
+    elif replace:
+        os.replace(source, target, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
+    else:
+        os.rename(source, target, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
 
 
 def clean_archive_root(raw: object) -> str:
@@ -139,40 +196,38 @@ def excluded(relative: str, manifest: dict[str, Any]) -> bool:
 
 def secure_open(root: Path, relative: str, *, directory: bool = False) -> int:
     """Open a release path component-by-component without following symlinks."""
-    if (
-        os.open not in os.supports_dir_fd
-        or os.stat not in os.supports_dir_fd
+    if os.name != "nt" and (
+        os.open not in os.supports_dir_fd or os.stat not in os.supports_dir_fd
         or os.stat not in os.supports_follow_symlinks
-        or not hasattr(os, "O_NOFOLLOW")
-        or not hasattr(os, "O_DIRECTORY")
+        or not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY")
         or not hasattr(os, "O_NONBLOCK")
     ):
         raise ReleaseError("secure release source traversal is not supported on this platform")
     parts = PurePosixPath(clean_relative_path(relative, "release source")).parts
-    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    directory_flags = DIRECTORY_FLAGS
     try:
-        current_fd = os.open(root, directory_flags)
+        current_fd = open_directory_path(root, create=False)
     except OSError as exc:
         raise ReleaseError(f"cannot open release root securely: {exc}") from exc
     try:
         for part in parts[:-1]:
             try:
-                next_fd = os.open(part, directory_flags, dir_fd=current_fd)
+                next_fd = fs.open(part, directory_flags, dir_fd=current_fd)
             except OSError as exc:
                 raise ReleaseError(f"release source has an unsafe ancestor: {relative}: {exc}") from exc
             os.close(current_fd)
             current_fd = next_fd
         try:
-            expected = os.stat(parts[-1], dir_fd=current_fd, follow_symlinks=False)
+            expected = fs.stat(parts[-1], dir_fd=current_fd, follow_symlinks=False)
         except OSError as exc:
             raise ReleaseError(f"cannot inspect release source securely: {relative}: {exc}") from exc
         expected_type = stat.S_ISDIR(expected.st_mode) if directory else stat.S_ISREG(expected.st_mode)
         if not expected_type:
             expected_label = "directory" if directory else "regular file"
             raise ReleaseError(f"release source must be a {expected_label}: {relative}")
-        flags = directory_flags if directory else os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+        flags = directory_flags if directory else os.O_RDONLY | fs.O_NOFOLLOW | fs.O_NONBLOCK
         try:
-            descriptor = os.open(parts[-1], flags, dir_fd=current_fd)
+            descriptor = fs.open(parts[-1], flags, dir_fd=current_fd)
         except OSError as exc:
             raise ReleaseError(f"cannot open release source securely: {relative}: {exc}") from exc
         opened = os.fstat(descriptor)
@@ -212,7 +267,7 @@ def secure_read_source(root: Path, relative: str) -> SourceFile:
         data = b"".join(chunks)
         if len(data) != before.st_size:
             raise ReleaseError(f"release source size changed while being read: {relative}")
-        mode = 0o755 if before.st_mode & 0o111 else 0o644
+        mode = release_mode(relative)
         return SourceFile(relative=relative, data=data, mode=mode)
     finally:
         os.close(descriptor)
@@ -229,6 +284,7 @@ def secure_check_directory(root: Path, relative: str) -> None:
 
 def collect_sources(root: Path, manifest: dict[str, Any]) -> list[SourceFile]:
     selected: set[str] = set()
+    directories = set(manifest["directories"])
     for relative in manifest["files"]:
         if excluded(relative, manifest):
             raise ReleaseError(f"explicit release file is excluded: {relative}")
@@ -237,35 +293,39 @@ def collect_sources(root: Path, manifest: dict[str, Any]) -> list[SourceFile]:
         raise ReleaseError("release closure has too many files")
     for directory in manifest["directories"]:
         secure_check_directory(root, directory)
-        directory_path = root / directory
+        directory_fd = secure_open(root, directory, directory=True)
         try:
-            def enumeration_error(error: OSError) -> None:
-                raise error
-
-            for current, directory_names, file_names in os.walk(
-                directory_path, followlinks=False, onerror=enumeration_error,
-            ):
-                current_path = Path(current)
-                directory_names[:] = [
-                    name for name in directory_names
-                    if not excluded((current_path / name).relative_to(root).as_posix(), manifest)
-                ]
-                for name in sorted(directory_names):
-                    child = current_path / name
-                    if child.is_symlink():
-                        raise ReleaseError(f"release closure contains a directory symlink: {child.relative_to(root)}")
-                for name in sorted(file_names):
-                    path = current_path / name
-                    relative = path.relative_to(root).as_posix()
+            def visit(parent_fd: int, prefix: str) -> None:
+                for name in sorted(fs.listdir(parent_fd)):
+                    relative = f"{prefix}/{name}"
+                    clean_relative_path(relative, "release source")
                     if excluded(relative, manifest):
                         continue
-                    if relative in selected:
-                        raise ReleaseError(f"release source selected more than once: {relative}")
-                    selected.add(relative)
-                    if len(selected) + 1 > MAX_ARCHIVE_MEMBERS:
-                        raise ReleaseError("release closure has too many files")
+                    metadata = fs.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+                    if stat.S_ISDIR(metadata.st_mode):
+                        directories.add(relative)
+                        child = fs.open(name, DIRECTORY_FLAGS, dir_fd=parent_fd)
+                        try:
+                            opened = os.fstat(child)
+                            if (metadata.st_dev, metadata.st_ino) != (opened.st_dev, opened.st_ino):
+                                raise ReleaseError(f"release directory changed while opening: {relative}")
+                            visit(child, relative)
+                        finally:
+                            os.close(child)
+                    elif stat.S_ISREG(metadata.st_mode):
+                        if relative in selected:
+                            raise ReleaseError(f"release source selected more than once: {relative}")
+                        selected.add(relative)
+                        if len(selected) + 1 > MAX_ARCHIVE_MEMBERS:
+                            raise ReleaseError("release closure has too many files")
+                    else:
+                        raise ReleaseError(f"release source must be a regular file or real directory: {relative}")
+            visit(directory_fd, directory)
         except OSError as exc:
             raise ReleaseError(f"cannot enumerate release directory {directory}: {exc}") from exc
+        finally:
+            os.close(directory_fd)
+    validate_portable_tree([*selected, EMBEDDED_MANIFEST], directories)
     sources: list[SourceFile] = []
     total_size = 0
     for relative in sorted(selected):
@@ -317,7 +377,7 @@ def zip_info(name: str, mode: int) -> zipfile.ZipInfo:
 
 
 def archive_bytes(root: Path) -> tuple[bytes, dict[str, Any]]:
-    root = root.resolve(strict=True)
+    root = root.absolute()
     manifest = load_manifest(root)
     sources = collect_sources(root, manifest)
     entries = source_entries(sources)
@@ -353,21 +413,24 @@ def write_archive(output: Path, data: bytes) -> None:
         raise ReleaseError("release output must name a file")
     parent_fd = open_directory_path(output.parent, create=True)
     temporary_name = f".{output.name}.build-{secrets.token_hex(12)}"
+    temporary_identity = None
     try:
         try:
-            existing = os.stat(output.name, dir_fd=parent_fd, follow_symlinks=False)
+            existing = fs.stat(output.name, dir_fd=parent_fd, follow_symlinks=False)
         except FileNotFoundError:
             existing = None
         if existing is not None and (
             not stat.S_ISREG(existing.st_mode) or existing.st_nlink != 1
         ):
             raise ReleaseError("release output must be a regular non-linked file")
-        descriptor = os.open(
+        descriptor = fs.open(
             temporary_name,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | fs.O_NOFOLLOW | getattr(fs, "O_DELETE", 0),
             0o600,
             dir_fd=parent_fd,
         )
+        opened = os.fstat(descriptor)
+        temporary_identity = (opened.st_dev, opened.st_ino)
         try:
             view = memoryview(data)
             while view:
@@ -375,25 +438,31 @@ def write_archive(output: Path, data: bytes) -> None:
                 if written <= 0:
                     raise ReleaseError("short write while building release archive")
                 view = view[written:]
-            os.fchmod(descriptor, 0o644)
+            set_file_mode(descriptor, 0o644)
             os.fsync(descriptor)
+            publish(descriptor, temporary_name, output.name, parent_fd, replace=True)
+            temporary_name = ""
         finally:
             os.close(descriptor)
-        os.rename(temporary_name, output.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
-        temporary_name = ""
-        os.fsync(parent_fd)
+        fsync_directory(parent_fd)
     finally:
-        if temporary_name:
-            try:
-                os.unlink(temporary_name, dir_fd=parent_fd)
-            except FileNotFoundError:
-                pass
-        os.close(parent_fd)
+        try:
+            if temporary_name and temporary_identity is not None:
+                try:
+                    current = fs.stat(temporary_name, dir_fd=parent_fd, follow_symlinks=False)
+                    if (current.st_dev, current.st_ino) != temporary_identity:
+                        raise ReleaseError("build temporary changed before cleanup")
+                    fs.unlink(temporary_name, dir_fd=parent_fd)
+                except FileNotFoundError:
+                    pass
+        finally:
+            os.close(parent_fd)
 
 
 def safe_archive_member(name: str, root_name: str) -> str:
     path = PurePosixPath(name)
-    if path.is_absolute() or ".." in path.parts or len(path.parts) < 2 or path.parts[0] != root_name:
+    if (str(path) != name or path.is_absolute() or ".." in path.parts
+        or len(path.parts) < 2 or path.parts[0] != root_name):
         raise ReleaseError(f"unsafe archive member: {name!r}")
     relative = PurePosixPath(*path.parts[1:]).as_posix()
     if relative == EMBEDDED_MANIFEST:
@@ -402,9 +471,13 @@ def safe_archive_member(name: str, root_name: str) -> str:
 
 
 def read_archive_bytes(archive_path: Path) -> bytes:
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    flags = os.O_RDONLY | fs.O_NOFOLLOW | fs.O_NONBLOCK | getattr(os, "O_BINARY", 0)
     try:
-        descriptor = os.open(archive_path, flags)
+        parent = open_directory_path(archive_path.parent, create=False)
+        try:
+            descriptor = fs.open(archive_path.name, flags, dir_fd=parent)
+        finally:
+            os.close(parent)
     except OSError as exc:
         raise ReleaseError(f"cannot open archive safely: {exc}") from exc
     try:
@@ -456,6 +529,7 @@ def inspect_archive(archive_path: Path, expected_sha256: str | None = None) -> t
                 raise ReleaseError("archive must have exactly one root directory")
             root_name = next(iter(root_names))
             clean_archive_root(root_name)
+            validate_portable_tree([safe_archive_member(name, root_name) for name in names])
             content: dict[str, bytes] = {}
             member_modes: dict[str, int] = {}
             total_size = 0
@@ -464,7 +538,7 @@ def inspect_archive(archive_path: Path, expected_sha256: str | None = None) -> t
                 if info.is_dir() or info.date_time != FIXED_TIMESTAMP or info.compress_type != zipfile.ZIP_STORED:
                     raise ReleaseError(f"non-deterministic archive metadata: {info.filename}")
                 mode = (info.external_attr >> 16) & 0o777
-                if mode not in {0o644, 0o755}:
+                if mode != release_mode(relative):
                     raise ReleaseError(f"unexpected archive mode for {info.filename}: {mode:o}")
                 if info.file_size > MAX_MEMBER_BYTES:
                     raise ReleaseError(f"archive member exceeds the size limit: {info.filename}")
@@ -535,7 +609,7 @@ def verify(root: Path | None, archive_path: Path, expected_sha256: str | None) -
     expected_digest = trusted_sha256(expected_sha256, required=root is None)
     embedded, content = inspect_archive(archive_path, expected_digest)
     if root is not None:
-        root = root.resolve(strict=True)
+        root = root.absolute()
         manifest = load_manifest(root)
         sources = collect_sources(root, manifest)
         expected_entries = source_entries(sources)
@@ -561,27 +635,29 @@ def verify(root: Path | None, archive_path: Path, expected_sha256: str | None) -
 
 def open_directory_path(path: Path, *, create: bool) -> int:
     """Open an absolute directory component-by-component without following links."""
-    if os.name == "nt" or not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+    if os.name == "nt":
+        return fs.open_directory_path(path, create=create)
+    if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
         raise ReleaseError("secure release extraction is not supported on this platform")
     absolute = path.absolute()
     parts = absolute.parts
     if not parts or parts[0] != os.path.sep:
         raise ReleaseError("extraction destination must resolve from an absolute filesystem root")
-    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-    descriptor = os.open(os.path.sep, flags)
+    flags = os.O_RDONLY | fs.O_DIRECTORY | fs.O_NOFOLLOW
+    descriptor = fs.open(os.path.sep, flags)
     try:
         for part in parts[1:]:
             try:
-                expected = os.stat(part, dir_fd=descriptor, follow_symlinks=False)
+                expected = fs.stat(part, dir_fd=descriptor, follow_symlinks=False)
             except FileNotFoundError:
                 if not create:
                     raise ReleaseError(f"extraction destination is missing: {absolute}")
-                os.mkdir(part, 0o755, dir_fd=descriptor)
-                expected = os.stat(part, dir_fd=descriptor, follow_symlinks=False)
+                fs.mkdir(part, 0o755, dir_fd=descriptor)
+                expected = fs.stat(part, dir_fd=descriptor, follow_symlinks=False)
             if not stat.S_ISDIR(expected.st_mode):
                 raise ReleaseError(f"extraction destination contains a non-directory component: {absolute}")
             try:
-                child = os.open(part, flags, dir_fd=descriptor)
+                child = fs.open(part, flags, dir_fd=descriptor)
             except OSError as exc:
                 raise ReleaseError(f"cannot open extraction destination safely: {absolute}: {exc}") from exc
             opened = os.fstat(child)
@@ -596,11 +672,11 @@ def open_directory_path(path: Path, *, create: bool) -> int:
         raise
 
 
-def create_directory_at(parent_fd: int, name: str, mode: int = 0o700) -> int:
-    os.mkdir(name, mode, dir_fd=parent_fd)
-    expected = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
-    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-    descriptor = os.open(name, flags, dir_fd=parent_fd)
+def create_directory_at(parent_fd: int, name: str, mode: int = 0o700, *, renameable=False) -> int:
+    fs.mkdir(name, mode, dir_fd=parent_fd)
+    expected = fs.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    flags = DIRECTORY_FLAGS | (getattr(fs, "O_DELETE", 0) if renameable else 0)
+    descriptor = fs.open(name, flags, dir_fd=parent_fd)
     opened = os.fstat(descriptor)
     if not stat.S_ISDIR(opened.st_mode) or (expected.st_dev, expected.st_ino) != (opened.st_dev, opened.st_ino):
         os.close(descriptor)
@@ -614,8 +690,8 @@ def write_file_at(root_fd: int, relative: str, data: bytes, mode: int) -> None:
     try:
         for part in parts[:-1]:
             try:
-                child_fd = os.open(
-                    part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory_fd,
+                child_fd = fs.open(
+                    part, os.O_RDONLY | fs.O_DIRECTORY | fs.O_NOFOLLOW, dir_fd=directory_fd,
                 )
             except FileNotFoundError:
                 child_fd = create_directory_at(directory_fd, part)
@@ -627,8 +703,8 @@ def write_file_at(root_fd: int, relative: str, data: bytes, mode: int) -> None:
                 raise ReleaseError(f"extraction ancestor is not a directory: {relative}")
             os.close(directory_fd)
             directory_fd = child_fd
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
-        descriptor = os.open(parts[-1], flags, mode, dir_fd=directory_fd)
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | fs.O_NOFOLLOW
+        descriptor = fs.open(parts[-1], flags, mode, dir_fd=directory_fd)
         try:
             if not stat.S_ISREG(os.fstat(descriptor).st_mode):
                 raise ReleaseError(f"extraction target is not a regular file: {relative}")
@@ -638,11 +714,11 @@ def write_file_at(root_fd: int, relative: str, data: bytes, mode: int) -> None:
                 if written <= 0:
                     raise ReleaseError(f"short write while extracting: {relative}")
                 view = view[written:]
-            os.fchmod(descriptor, mode)
+            set_file_mode(descriptor, mode)
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
-        os.fsync(directory_fd)
+        fsync_directory(directory_fd)
     finally:
         os.close(directory_fd)
 
@@ -650,19 +726,19 @@ def write_file_at(root_fd: int, relative: str, data: bytes, mode: int) -> None:
 def remove_tree_at(parent_fd: int, name: str) -> None:
     """Best-effort no-follow cleanup for a private failed extraction tree."""
     try:
-        descriptor = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent_fd)
+        descriptor = fs.open(name, os.O_RDONLY | fs.O_DIRECTORY | fs.O_NOFOLLOW, dir_fd=parent_fd)
     except FileNotFoundError:
         return
     try:
-        for child in os.listdir(descriptor):
-            metadata = os.stat(child, dir_fd=descriptor, follow_symlinks=False)
+        for child in fs.listdir(descriptor):
+            metadata = fs.stat(child, dir_fd=descriptor, follow_symlinks=False)
             if stat.S_ISDIR(metadata.st_mode):
                 remove_tree_at(descriptor, child)
             else:
-                os.unlink(child, dir_fd=descriptor)
+                fs.unlink(child, dir_fd=descriptor)
     finally:
         os.close(descriptor)
-    os.rmdir(name, dir_fd=parent_fd)
+    fs.rmdir(name, dir_fd=parent_fd)
 
 
 def extract(archive_path: Path, destination: Path, expected_sha256: str) -> dict[str, Any]:
@@ -675,30 +751,42 @@ def extract(archive_path: Path, destination: Path, expected_sha256: str) -> dict
     destination_fd = open_directory_path(destination, create=True)
     temporary_name = f".{root_name}.extract-{secrets.token_hex(12)}"
     temporary_fd: int | None = None
+    temporary_identity = None
     modes = {entry["path"]: entry["mode"] for entry in embedded["source_entries"]}
     try:
         try:
-            os.stat(root_name, dir_fd=destination_fd, follow_symlinks=False)
+            fs.stat(root_name, dir_fd=destination_fd, follow_symlinks=False)
         except FileNotFoundError:
             pass
         else:
             raise ReleaseError(f"extraction target already exists: {destination / root_name}")
-        temporary_fd = create_directory_at(destination_fd, temporary_name)
+        temporary_fd = create_directory_at(destination_fd, temporary_name, renameable=True)
+        opened = os.fstat(temporary_fd)
+        temporary_identity = (opened.st_dev, opened.st_ino)
         for relative in sorted(content):
             write_file_at(temporary_fd, relative, content[relative], modes[relative])
         write_file_at(temporary_fd, EMBEDDED_MANIFEST, canonical_json({
             key: value for key, value in embedded.items() if key != "archive_sha256"
         }), 0o644)
-        os.fsync(temporary_fd)
-        os.rename(temporary_name, root_name, src_dir_fd=destination_fd, dst_dir_fd=destination_fd)
-        os.fsync(destination_fd)
+        fsync_directory(temporary_fd)
+        publish(temporary_fd, temporary_name, root_name, destination_fd)
+        fsync_directory(destination_fd)
         temporary_name = ""
     finally:
-        if temporary_fd is not None:
-            os.close(temporary_fd)
-        if temporary_name:
-            remove_tree_at(destination_fd, temporary_name)
-        os.close(destination_fd)
+        try:
+            if temporary_fd is not None:
+                os.close(temporary_fd)
+            if temporary_name and temporary_identity is not None:
+                try:
+                    current = fs.stat(temporary_name, dir_fd=destination_fd, follow_symlinks=False)
+                except FileNotFoundError:
+                    pass
+                else:
+                    if (current.st_dev, current.st_ino) != temporary_identity:
+                        raise ReleaseError("extraction temporary changed before cleanup")
+                    remove_tree_at(destination_fd, temporary_name)
+        finally:
+            os.close(destination_fd)
     target_root = destination.absolute() / root_name
     return {
         "archive_sha256": embedded["archive_sha256"],
@@ -730,11 +818,11 @@ def main() -> int:
     args = parser().parse_args()
     try:
         if args.command == "build":
-            result = build(args.root.resolve(), args.output.absolute())
+            result = build(args.root.absolute(), args.output.absolute())
         elif args.command == "verify":
-            result = verify(args.root.resolve() if args.root else None, args.archive.resolve(), args.expected_sha256)
+            result = verify(args.root.absolute() if args.root else None, args.archive.absolute(), args.expected_sha256)
         else:
-            result = extract(args.archive.resolve(), args.destination.absolute(), args.expected_sha256)
+            result = extract(args.archive.absolute(), args.destination.absolute(), args.expected_sha256)
     except (ReleaseError, OSError, TypeError, ValueError) as exc:
         print(json.dumps({"error": str(exc), "ok": False}, ensure_ascii=False, sort_keys=True), file=sys.stderr)
         return 1

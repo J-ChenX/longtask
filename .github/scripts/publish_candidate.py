@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -144,8 +145,18 @@ def publish(root: Path) -> None:
             raise ReleaseError(f"Missing verified publication input: {path.name}")
     if not require_matching_tag(tag, commit):
         api("POST", "git/refs", {"ref": f"refs/tags/{tag}", "sha": commit})
-    if not require_matching_tag(tag, commit):
-        raise ReleaseError("Version tag is unavailable after creation")
+        # A newly created ref may briefly remain invisible to subsequent GETs.
+        # Retry only explicit absence; invalid responses and commit drift stay fatal.
+        for delay in (0, 1, 2, 4, 8):
+            if delay:
+                print(f"{tag}: waiting {delay}s for the created tag to become visible", flush=True)
+                time.sleep(delay)
+            if require_matching_tag(tag, commit):
+                break
+        else:
+            raise ReleaseError("Version tag is unavailable after creation (5 checks over 15s of backoff); retry the workflow")
+    elif not require_matching_tag(tag, commit):
+        raise ReleaseError("Version tag is unavailable before publication")
     subprocess.run([
         "gh", "release", "create", tag, str(archive), str(checksum),
         "--verify-tag", "--prerelease", "--latest=false",

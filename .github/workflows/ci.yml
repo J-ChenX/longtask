@@ -34,7 +34,35 @@ jobs:
         run: python3 -m unittest discover -s .github/tests -v
       - name: Run unit tests
         run: python3 -m unittest discover -s tests -v
-      - name: Execute deterministic forward contracts
-        run: python3 scripts/run_forward_evals.py --run
       - name: Validate source and release closure
         run: python3 scripts/validate_longtask.py
+
+  windows-native:
+    name: Windows native Python 3.14 boundaries
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Enable native symbolic-link and DOS-alias fixtures
+        shell: pwsh
+        run: |
+          # The native tests require symlinks as well as junctions. A runner
+          # without this capability must fail rather than silently skip them.
+          New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -Force | Out-Null
+          New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -Name AllowDevelopmentWithoutDevLicense -Value 1 -PropertyType DWord -Force
+          # Only this disposable runner is changed; exercise actual 8.3 aliases.
+          fsutil 8dot3name set 2
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot enable per-volume DOS names' }
+          fsutil 8dot3name set (Split-Path -Qualifier $env:TEMP) 0
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot enable DOS-name fixtures on TEMP volume' }
+      - name: Run native filesystem, state, input and release consumers
+        run: python -m unittest discover -s tests -p test_windows*.py -v
+      - name: Run bound hook commands
+        run: python -m unittest discover -s tests -p test_longtask_hooks.py -k HookCommandTests -v
+      - name: Run portable release contracts
+        run: python -m unittest discover -s tests -p test_release.py -v

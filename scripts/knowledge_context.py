@@ -12,12 +12,17 @@ from collections import Counter
 import hashlib
 import json
 import os
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 import re
 import stat
 import sys
 import unicodedata
 from urllib.parse import quote, unquote
+
+if os.name == "nt":
+    import windows_fs as fs
+else:
+    fs = os
 
 MAX_FILE_BYTES = 262144
 MAX_SCAN_BYTES = 8388608
@@ -47,7 +52,7 @@ def sha256(data: bytes) -> str:
 
 def fingerprint(info):
     return (info.st_dev, info.st_ino, info.st_mode, info.st_size,
-            info.st_mtime_ns, info.st_ctime_ns)
+            info.st_mtime_ns, info.st_ctime_ns, info.st_nlink)
 
 
 def relative_path(value: str) -> str:
@@ -58,7 +63,8 @@ def relative_path(value: str) -> str:
     parts = value.split("/")
     if any(p in {"", ".", ".."} for p in parts):
         fail("invalid_path", "Empty, dot and parent path components are forbidden")
-    if not value.endswith(".md") or parts[0] in {".git", ".longtask"}:
+    first = parts[0].casefold() if os.name == "nt" else parts[0]
+    if not value.endswith(".md") or first in {".git", ".longtask"}:
         fail("invalid_path", "Only current Markdown knowledge is readable")
     return value
 
@@ -94,7 +100,7 @@ class Workspace:
     """
 
     def __init__(self, root):
-        if (not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY")
+        if os.name != "nt" and (not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY")
                 or os.open not in os.supports_dir_fd or os.stat not in os.supports_dir_fd
                 or os.scandir not in os.supports_fd):
             fail("unsupported_host", "Descriptor-relative no-follow reads are required")
@@ -109,6 +115,11 @@ class Workspace:
         self.root_fd = self._open_absolute_root()
 
     def _open_absolute_root(self):
+        if os.name == "nt":
+            try:
+                return fs.open_directory_path(Path(self.root))
+            except OSError:
+                fail("unsafe_root", "Root must be an existing directory without reparse components on a local volume")
         fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
         try:
             for part in PurePosixPath(self.root).parts[1:]:
@@ -141,28 +152,50 @@ class Workspace:
         try:
             parts = path.split("/")
             for i, part in enumerate(parts):
-                flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+                flags = os.O_RDONLY | fs.O_NOFOLLOW | fs.O_NONBLOCK
+                expected = None
+                if os.name == "nt":
+                    expected = fs.stat(part, dir_fd=fd, follow_symlinks=False)
                 if i < len(parts) - 1 or directory:
-                    flags |= os.O_DIRECTORY
-                new_fd = os.open(part, flags, dir_fd=fd)
+                    flags |= fs.O_DIRECTORY
+                elif expected is not None and stat.S_ISDIR(expected.st_mode):
+                    # exists/probe may inspect a directory; the native backend
+                    # needs its object type before opening, then checks identity.
+                    flags |= fs.O_DIRECTORY
+                new_fd = fs.open(part, flags, dir_fd=fd)
+                try:
+                    if expected is not None:
+                        if fingerprint(expected) != fingerprint(os.fstat(new_fd)):
+                            fail("read_race", f"Knowledge path changed while opening: {path}")
+                        if fs.canonical_component(new_fd).casefold() != part.casefold():
+                            fail("unsafe_path", f"Alternate native name in knowledge path: {path}")
+                except BaseException:
+                    os.close(new_fd)
+                    raise
                 os.close(fd)
                 fd = new_fd
             return fd
-        except OSError as exc:
+        except (OSError, KnowledgeError) as exc:
             os.close(fd)
+            if isinstance(exc, KnowledgeError):
+                raise
             if exc.errno == 2:
                 fail("missing_path", f"Missing knowledge path: {path}")
             fail("unsafe_path", f"Cannot safely open knowledge path: {path}")
 
+    def file_limit(self, path):
+        return MAX_FILE_BYTES
+
     def read_bytes(self, fd, path):
+        limit = self.file_limit(path)
         chunks, count = [], 0
         while True:
-            chunk = os.read(fd, min(65536, MAX_FILE_BYTES + 1 - count))
+            chunk = os.read(fd, min(65536, limit + 1 - count))
             if not chunk:
                 break
             chunks.append(chunk)
             count += len(chunk)
-            if count > MAX_FILE_BYTES:
+            if count > limit:
                 fail("input_too_large", f"File grew beyond input limit: {path}")
         return b"".join(chunks)
 
@@ -171,7 +204,7 @@ class Workspace:
         fd = self.open_path(path)
         try:
             before = os.fstat(fd)
-            if not stat.S_ISREG(before.st_mode):
+            if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
                 fail("unsafe_path", f"Knowledge input is not a regular file: {path}")
             if before.st_size > MAX_FILE_BYTES:
                 fail("input_too_large", f"File exceeds {MAX_FILE_BYTES} bytes: {path}")
@@ -194,6 +227,14 @@ class Workspace:
         finally:
             os.close(fd)
 
+    def names(self, fd):
+        if os.name == "nt":
+            yield from fs.iterdir(fd)
+        else:
+            with os.scandir(fd) as entries:
+                for entry in entries:
+                    yield entry.name
+
     def walk(self, path, depth=0):
         if depth > MAX_DEPTH:
             fail("input_too_large", "Knowledge directory nesting exceeds limit")
@@ -203,16 +244,15 @@ class Workspace:
             # scandir streams entries so enormous directories cannot allocate an
             # unbounded name list before the traversal limit is applied.
             names = []
-            with os.scandir(fd) as entries:
-                for entry in entries:
-                    self.nodes += 1
-                    if self.nodes > MAX_NODES:
-                        fail("input_too_large", "Knowledge traversal exceeds entry limit")
-                    names.append(entry.name)
+            for name in self.names(fd):
+                self.nodes += 1
+                if self.nodes > MAX_NODES:
+                    fail("input_too_large", "Knowledge traversal exceeds entry limit")
+                names.append(name)
             self.remember(self.directories, path, fingerprint(before), sorted(names), fd)
             for name in sorted(names):
                 child = f"{path}/{name}"
-                info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                info = fs.stat(name, dir_fd=fd, follow_symlinks=False)
                 if stat.S_ISLNK(info.st_mode):
                     fail("unsafe_path", f"Symlink in knowledge tree: {child}")
                 if stat.S_ISDIR(info.st_mode):
@@ -248,7 +288,7 @@ class Workspace:
             raise
         try:
             info = os.fstat(fd)
-            if not stat.S_ISREG(info.st_mode):
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
                 fail("unsafe_path", f"Markdown target is not a regular file: {path}")
             self.remember(self.probes, path, fingerprint(info), None, fd)
             return True
@@ -275,11 +315,10 @@ class Workspace:
                         fail("read_race", f"Knowledge changed before output: {path}")
                     if directory:
                         names = []
-                        with os.scandir(fd) as entries:
-                            for entry in entries:
-                                names.append(entry.name)
-                                if len(names) > MAX_NODES:
-                                    fail("read_race", f"Knowledge directory grew before output: {path}")
+                        for name in self.names(fd):
+                            names.append(name)
+                            if len(names) > MAX_NODES:
+                                fail("read_race", f"Knowledge directory grew before output: {path}")
                         changed = sorted(names) != content
                     else:
                         changed = sha256(self.read_bytes(fd, path)) != content
@@ -744,6 +783,9 @@ def bounded_int(maximum, minimum=1):
 
 
 def main(argv=None):
+    if os.name == "nt":
+        sys.stdout.reconfigure(encoding="utf-8", newline="\n")
+        sys.stderr.reconfigure(encoding="utf-8", newline="\n")
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     find = commands.add_parser("index", help="Discover current L0/L1/L2 knowledge without returning bodies")
