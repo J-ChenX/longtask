@@ -72,6 +72,19 @@ class SourceSnapshotTests(unittest.TestCase):
                          'activePermissionProfile': {'id': ':danger-full-access'}},
             'sourceThreadId': SOURCE, 'observation': 'host_recorded_snapshot'})
 
+    def test_optional_context_observation_uses_last_request_not_cumulative(self):
+        event = {'type': 'event_msg', 'payload': {'type': 'token_count', 'info': {
+            'total_token_usage': {'total_tokens': 999999999},
+            'last_token_usage': {'total_tokens': 42}, 'model_context_window': 100}}}
+        self.write(self.context(), event)
+        self.assertNotIn('contextUsage', self.read())
+        self.assertEqual(self.read(include_context=True)['contextUsage'],
+                         {'lastRequestTokens': 42, 'modelContextWindow': 100})
+        for bad in (True, -1, '42', None):
+            event['payload']['info']['last_token_usage']['total_tokens'] = bad
+            self.write(self.context(), event)
+            self.assertIsNone(self.read(include_context=True)['contextUsage'])
+
     def test_last_typed_record_wins_in_both_directions(self):
         for earlier, later in ((self.context(), self.settings(approval_policy='untrusted')),
                                (self.settings(), self.context(approval_policy='on-request'))):

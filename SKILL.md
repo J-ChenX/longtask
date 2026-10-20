@@ -4,7 +4,7 @@ description: 编排跨上下文或独立验收包的编码任务，在授权内�
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:
-  version: "4.5.0"
+  version: "4.6.0"
 ---
 
 # 长任务编排
@@ -50,6 +50,8 @@ python3 {skill-root}/scripts/longtask_state.py context --root {workspace-root} -
 ## 推进与停止条件
 
 沿总目标的未满足验收推进，完成已授权的实现、验证、必要修复和独立审查后交付。局部通过不能代替整体完成；全部承诺满足后停止，可选改进不延迟交付。持续推进可由接续会话承担，不要求同一对话承载整个任务；到达[会话出口](references/任务推进.md#会话预算与递进交接)时执行已授权的实际接管，保存 handoff 本身不表示已移交。用户要求避免压缩时，优先按[提前交接与禁压缩](references/任务推进.md#提前交接与禁压缩)处理；压缩后的可信恢复信号按[内置信号桥](references/平台适配器.md#内置压缩信号桥)消费，不能把降级恢复声称为零压缩。
+
+用户明确选择让所有任务禁压缩并自动接续时，使用[可选全局接续](references/全局接续.md)的宿主能力与实机边界；常规任务不因此自动进入完整 longtask 工作流。
 
 补充约束、状态询问和局部问题不默认替换目标；明确暂停、取消或更换目标时遵循新指令。主线/分支、默认“骨架 → 血肉 → 皮毛”分段、仅规划与会话出口按需查[任务推进](references/任务推进.md)。读取、查询和验证的刷新条件见[按需消费](references/任务推进.md#按需消费与验证)，有价值的发现与失败按[保存事件](references/任务推进.md#发现与保存事件)处理。
 

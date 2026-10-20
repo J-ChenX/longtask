@@ -11,9 +11,9 @@ longtask 是面向 Codex 的个人编码技能插件。它保存项目知识和�
 
 [快速开始](#快速开始) · [模式与场景](#模式与场景) · [文档导航](#文档导航) · [参与贡献](#参与贡献)
 
-## 4.5.0 更新
+## 4.6.0 更新
 
-新增主窗口权限快照同步和直接协作消息：可选适配器显式绑定主窗口，派发前核对新窗口实际权限；活动会话直接引导，避免只入队后等待手动处理。能力范围与安装要求见[4.5.0 版本说明](版本说明.md#450)。
+新增可选全局接续：常规任务也能接收用量预警，在已核验宿主上于压缩前单次派发接续会话，保留未知结果去重与旧写入者门。使用与实机限制见[全局接续](references/全局接续.md)和[4.6.0 版本说明](版本说明.md#460)。
 
 压缩信号也进入流程：插件内置只读 PreCompact 检测和 SessionStart(compact) 恢复指令。安装后须在 `/hooks` 审阅并信任；它允许一次压缩，随后优先在安全出口执行已授权的新会话接管。实际退出仍依赖模型、原生能力与授权，不保证零压缩或任务最终完成，见[信号桥](references/平台适配器.md#内置压缩信号桥)。
 
@@ -38,8 +38,8 @@ longtask 是面向 Codex 的个人编码技能插件。它保存项目知识和�
 ```bash
 git clone https://github.com/J-ChenX/longtask.git
 cd longtask
-python3 scripts/build_release.py build --root . --output dist/longtask-4.5.0.zip
-python3 scripts/build_release.py verify --root . --archive dist/longtask-4.5.0.zip
+python3 scripts/build_release.py build --root . --output dist/longtask-4.6.0.zip
+python3 scripts/build_release.py verify --root . --archive dist/longtask-4.6.0.zip
 ```
 
 构建与验证确认归档和源码一致。安装及发布还需相应验收证据；其他渠道的归档须核对受信 SHA-256。

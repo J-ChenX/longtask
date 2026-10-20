@@ -53,8 +53,9 @@ def thread_id(value):
 
 class Proxy:
     """串行、有界 JSON-RPC；连接失效后不重连、不重放任何请求。"""
-    def __init__(self, codex, root):
+    def __init__(self, codex, root, *, socket=None):
         self.codex, self.root = codex, root
+        self.socket = socket
         self.process = None
         self.selector = selectors.DefaultSelector()
         self.writer = selectors.DefaultSelector()
@@ -69,7 +70,7 @@ class Proxy:
             return
         try:
             self.process = subprocess.Popen(
-                [self.codex, "app-server", "proxy"], cwd=self.root,
+                [self.codex, "app-server", "proxy", *(["--sock", str(self.socket)] if self.socket else [])], cwd=self.root,
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0,
             )
             os.set_blocking(self.process.stdin.fileno(), False)

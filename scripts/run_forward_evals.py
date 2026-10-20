@@ -44,6 +44,9 @@ CONTRACT_INPUTS = (
     "references/新项目设计.md",
     "scripts/longtask_state.py",
     "scripts/longtask_hooks.py",
+    "scripts/precompact_handoff.py",
+    "references/全局接续.md",
+    "tests/test_precompact_handoff.py",
     "scripts/codex_sessions.py",
     "scripts/session_permissions.py",
     "tests/test_session_permissions.py",
@@ -69,6 +72,7 @@ DEFAULT_SUITE = "tests.test_forward_workflows.ForwardWorkflowTests"
 TEST_SUITES = {
     "tests.test_session_permissions.SourceSnapshotTests": ("test_session_permissions.py", "SourceSnapshotTests"),
     "tests.test_codex_sessions.SessionsTests": ("test_codex_sessions.py", "SessionsTests"),
+    "tests.test_precompact_handoff.HandoffTests": ("test_precompact_handoff.py", "HandoffTests"),
     "tests.test_longtask_hooks.LongtaskHookTests": ("test_longtask_hooks.py", "LongtaskHookTests"),
     DEFAULT_SUITE: ("test_forward_workflows.py", "ForwardWorkflowTests"),
     "tests.test_longtask_state.LongtaskStateTests": ("test_longtask_state.py", "LongtaskStateTests"),

@@ -624,6 +624,22 @@
       "expected_entry": null,
       "expected_skill": null,
       "rationale": "Prose shortening is not a recoverable coding task or actual session handoff."
+    },
+    {
+      "id": "global_continuation_regular_task_not_orchestration",
+      "prompt": "全局禁压缩与自动接续已启用。帮我修正 README 中一个拼写错误。",
+      "should_trigger": false,
+      "expected_skill": null,
+      "expected_entry": null,
+      "rationale": "宿主全局接续策略不会把常规小任务升级成完整 longtask 编排。"
+    },
+    {
+      "id": "explicit_global_continuation_skill_maintenance",
+      "prompt": "使用 longtask 修改其宿主能力合同，使常规任务也能在压缩前接续，并验证失败恢复及授权边界。",
+      "should_trigger": true,
+      "expected_skill": "longtask",
+      "expected_entry": "modify",
+      "rationale": "明确维护宿主集成与工作流合同，使用 modify；不改变常规任务的技能触发边界。"
     }
   ]
 }

@@ -286,6 +286,31 @@
       "id": "unknown_creation_message_cross_entry_quarantine",
       "test": "test_unknown_initial_turn_cannot_be_replayed_through_message_tool",
       "suite": "tests.test_codex_sessions.SessionsTests"
+    },
+    {
+      "id": "global_regular_task_precompact_dispatch",
+      "test": "test_regular_task_dispatch_without_longtask_state_and_no_compaction",
+      "suite": "tests.test_precompact_handoff.HandoffTests"
+    },
+    {
+      "id": "global_handoff_unknown_no_replay",
+      "test": "test_uncertain_creation_and_dispatch_do_not_replay",
+      "suite": "tests.test_precompact_handoff.HandoffTests"
+    },
+    {
+      "id": "global_exact_source_stop",
+      "test": "test_receiver_waits_for_exact_source_stop_then_releases",
+      "suite": "tests.test_precompact_handoff.HandoffTests"
+    },
+    {
+      "id": "global_host_ownership_required",
+      "test": "test_source_must_be_active_on_same_host_and_turn",
+      "suite": "tests.test_precompact_handoff.HandoffTests"
+    },
+    {
+      "id": "global_context_early_warning",
+      "test": "test_early_warning_uses_last_request_ratio_and_never_dispatches",
+      "suite": "tests.test_precompact_handoff.HandoffTests"
     }
   ]
 }

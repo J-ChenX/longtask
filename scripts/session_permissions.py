@@ -124,7 +124,7 @@ def _bounded_messages(messages, total_count):
 
 
 def read_source_snapshot(path, source_thread_id, root, *, sessions_root=None,
-                         include_user_messages=False):
+                         include_user_messages=False, include_context=False):
     """读取最新宿主记录；并非原子 live 权限，也不是可转移的用户批准。"""
     descriptor = None
     try:
@@ -150,6 +150,7 @@ def read_source_snapshot(path, source_thread_id, root, *, sessions_root=None,
             raise SourceError("permission_source_record_invalid")
         identity_seen = False
         latest = None
+        context_usage = None
         messages = deque(maxlen=USER_MESSAGE_LIMIT)
         user_count = 0
         remaining = before.st_size
@@ -179,6 +180,19 @@ def read_source_snapshot(path, source_thread_id, root, *, sessions_root=None,
                 elif (kind == 'event_msg' and isinstance(payload, dict)
                       and payload.get('type') == 'thread_settings_applied'):
                     latest = (payload, True)
+                if (include_context and kind == 'event_msg' and isinstance(payload, dict)
+                        and payload.get('type') == 'token_count'):
+                    context_usage = None
+                    info = payload.get('info')
+                    if isinstance(info, dict):
+                        usage = info.get('last_token_usage')
+                        window = info.get('model_context_window')
+                        tokens = usage.get('total_tokens') if isinstance(usage, dict) else None
+                        if (type(tokens) is int and type(window) is int
+                                and tokens >= 0 and window > 0):
+                            context_usage = {'lastRequestTokens': tokens, 'modelContextWindow': window}
+                        else:
+                            context_usage = None
                 if include_user_messages:
                     message = _user_text(record)
                     if message is not None:
@@ -203,6 +217,8 @@ def read_source_snapshot(path, source_thread_id, root, *, sessions_root=None,
             result['userMessages'] = _bounded_messages(messages, user_count)
             result['historyTruncated'] = (user_count > len(messages)
                                           or sum(map(len, messages)) > USER_TEXT_LIMIT)
+        if include_context:
+            result['contextUsage'] = context_usage
         return result
     except SourceError:
         raise

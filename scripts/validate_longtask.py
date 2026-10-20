@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_VERSION = "4.5.0"
+SKILL_VERSION = "4.6.0"
 SKILL_NAMES = ("longtask",)
 MODE_REFERENCES = (
     "references/新建项目.md", "references/既有项目接入.md", "references/任务续接.md",
@@ -43,6 +43,9 @@ REQUIRED_FILES = (
     "scripts/longtask_state.py",
     "scripts/longtask_hooks.py",
     "scripts/precompact_guard.py",
+    "scripts/precompact_handoff.py",
+    "references/全局接续.md",
+    "tests/test_precompact_handoff.py",
     "scripts/codex_sessions.py",
     "scripts/session_permissions.py",
     "tests/test_session_permissions.py",
