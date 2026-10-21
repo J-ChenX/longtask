@@ -4,9 +4,12 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest import mock
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 SPEC = importlib.util.spec_from_file_location(
     'session_permissions', Path(__file__).resolve().parents[1] / 'scripts/session_permissions.py')

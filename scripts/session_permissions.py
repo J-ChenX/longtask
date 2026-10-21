@@ -1,4 +1,4 @@
-"""供 codex_sessions 消费的宿主权限快照；不管理会话、授权或任务状态。"""
+"""供会话适配器和提前通知消费的有界宿主快照；不管理会话、授权或任务状态。"""
 from __future__ import annotations
 
 from collections import deque
@@ -47,17 +47,15 @@ def _open_source(path, sessions_root):
         relative = path.relative_to(sessions_root)
     except ValueError:
         raise SourceError("permission_source_unavailable") from None
-    if not relative.parts or not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+    if not relative.parts:
         raise SourceError("permission_source_unavailable")
-    directory = os.open('/', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    # The runtime backend pins each ancestor and rejects POSIX links / Windows
+    # reparse points. Do not resolve and then reopen an ordinary path.
+    import longtask_state as runtime
+    directory = runtime.open_directory_path(path.parent, create=False)
     try:
-        for part in path.parts[1:-1]:
-            following = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                                dir_fd=directory)
-            os.close(directory)
-            directory = following
-        return os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
-                       dir_fd=directory)
+        return runtime.fs.open(path.name, os.O_RDONLY | runtime.fs.O_NOFOLLOW |
+                               runtime.fs.O_NONBLOCK, dir_fd=directory)
     finally:
         os.close(directory)
 
@@ -126,6 +124,19 @@ def _bounded_messages(messages, total_count):
 def read_source_snapshot(path, source_thread_id, root, *, sessions_root=None,
                          include_user_messages=False, include_context=False):
     """读取最新宿主记录；并非原子 live 权限，也不是可转移的用户批准。"""
+    return _read_snapshot(path, source_thread_id, root, sessions_root=sessions_root,
+                          include_user_messages=include_user_messages,
+                          include_context=include_context)
+
+
+def read_context_usage(path, source_thread_id, root, *, sessions_root=None):
+    """只返回新鲜来源的最近请求计数，不要求或输出权限/用户文本。"""
+    return _read_snapshot(path, source_thread_id, root, sessions_root=sessions_root,
+                          include_context=True, context_only=True)
+
+
+def _read_snapshot(path, source_thread_id, root, *, sessions_root=None,
+                   include_user_messages=False, include_context=False, context_only=False):
     descriptor = None
     try:
         try:
@@ -148,6 +159,8 @@ def read_source_snapshot(path, source_thread_id, root, *, sessions_root=None,
             raise SourceError("permission_source_limit_exceeded")
         if not before.st_size:
             raise SourceError("permission_source_record_invalid")
+        if context_only and not -5 <= time.time() - before.st_mtime <= 300:
+            raise SourceError("permission_source_unavailable")
         identity_seen = False
         latest = None
         context_usage = None
@@ -206,7 +219,11 @@ def read_source_snapshot(path, source_thread_id, root, *, sessions_root=None,
                 raise SourceError("permission_source_unavailable")
         if time.monotonic() > deadline:
             raise SourceError("permission_source_limit_exceeded")
-        if not identity_seen or latest is None:
+        if not identity_seen:
+            raise SourceError("permission_source_record_invalid")
+        if context_only:
+            return context_usage
+        if latest is None:
             raise SourceError("permission_source_record_invalid")
         policy = _policy(latest[0], source_thread_id, root, settings=latest[1])
         result = {'start': {**policy, 'permissions': ':danger-full-access'},

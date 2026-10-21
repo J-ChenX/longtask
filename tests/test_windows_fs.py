@@ -90,6 +90,37 @@ class WindowsFilesystemTests(unittest.TestCase):
             finally:
                 os.close(fd)
 
+    def test_private_acl_canonicalizes_builtin_sid_aliases_without_widening(self):
+        from ctypes import wintypes as W
+        # Exercise real Windows parsing/serialization for builtin Administrator
+        # and SYSTEM; neither account must own this test process or file.
+        for sid in (fs._SID.rsplit("-", 1)[0] + "-500", "S-1-5-18"):
+            policy = f"D:P(A;;FA;;;SY)(A;;FA;;;{sid})"
+            variants = [(policy, True),
+                        (policy.replace("D:P", "D:"), False),
+                        (policy + "(A;;FR;;;WD)", False),
+                        (policy.replace("A;;FA", "A;;FR", 1), False),
+                        (policy.replace("A;;FA", "A;OI;FA", 1), False)]
+            with mock.patch.object(fs, "_PRIVATE_DACL", policy):
+                for sddl, expected in variants:
+                    with self.subTest(sid=sid, sddl=sddl):
+                        descriptor = W.LPVOID()
+                        fs._wincheck(fs._parse_security(sddl, 1, fs.C.byref(descriptor), None))
+                        try:
+                            if expected:
+                                self.assertNotEqual(fs._dacl_string(descriptor), policy)
+                            self.assertEqual(fs._private_dacl(descriptor), expected)
+                        finally:
+                            fs._free(descriptor)
+        self.write("private-owner")
+        fd = fs.open("private-owner", os.O_RDONLY, dir_fd=self.parent)
+        try:
+            self.assertTrue(fs.is_private(fd))
+            with mock.patch.object(fs, "_SID", "S-1-1-0"):
+                self.assertFalse(fs.is_private(fd))
+        finally:
+            os.close(fd)
+
     def test_retained_staging_handle_can_publish_without_reopening_source(self):
         staging = fs.open("staging", fs.O_DIRECTORY | fs.O_DELETE | os.O_CREAT | os.O_EXCL,
                           0o700, dir_fd=self.parent)

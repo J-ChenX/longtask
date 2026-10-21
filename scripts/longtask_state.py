@@ -379,6 +379,30 @@ def task_dir(root: Path, task_id: str) -> Path:
 
 
 def _inside(root: Path, target: Path) -> Path:
+    if os.name == "nt":
+        # realpath expands DOS 8.3 names as well as reparse points. A string
+        # difference cannot distinguish them; inspect the actual directory chain.
+        root, target = root.absolute(), target.absolute()
+        try:
+            relative = target.relative_to(root)
+        except ValueError as exc:
+            raise StateError(f"state path escapes workspace: {target}") from exc
+        if ".." in root.parts or ".." in target.parts:
+            raise StateError(f"state path contains parent traversal: {target}")
+        descriptor = open_directory_path(root, create=False)
+        try:
+            for part in relative.parts:
+                try:
+                    child = fs.open(part, DIRECTORY_FLAGS, dir_fd=descriptor)
+                except FileNotFoundError:
+                    # Missing suffixes are later created/opened by the same
+                    # no-follow backend; this check never creates directories.
+                    break
+                os.close(descriptor)
+                descriptor = child
+        finally:
+            os.close(descriptor)
+        return target
     resolved = target.resolve()
     try:
         resolved.relative_to(root.resolve())

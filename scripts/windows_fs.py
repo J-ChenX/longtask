@@ -424,6 +424,27 @@ def fsync_directory(fd):
         _close(handle)
 
 
+def _dacl_string(descriptor):
+    """Canonical SDDL from the native descriptor, including protection flags."""
+    text = W.LPWSTR()
+    _wincheck(_security_text(descriptor, 1, 4, C.byref(text), None))
+    try:
+        return text.value
+    finally:
+        _free(C.cast(text, W.LPVOID))
+
+
+def _private_dacl(descriptor):
+    # Windows serializes well-known numeric SIDs using aliases (e.g. LA/SY).
+    # Canonicalize both sides; preserve exact ACEs, access masks and DACL flags.
+    expected = W.LPVOID()
+    _wincheck(_parse_security(_PRIVATE_DACL, 1, C.byref(expected), None))
+    try:
+        return _dacl_string(descriptor) == _dacl_string(expected)
+    finally:
+        _free(expected)
+
+
 def is_private(fd):
     """Recovery accepts only our protected owner+SYSTEM full-control DACL and owner."""
     owner = W.LPVOID()
@@ -432,13 +453,6 @@ def is_private(fd):
     if error:
         raise C.WinError(error)
     try:
-        if _sid_string(owner) != _SID:
-            return False
-        text = W.LPWSTR()
-        _wincheck(_security_text(descriptor, 1, 4, C.byref(text), None))
-        try:
-            return text.value == _PRIVATE_DACL
-        finally:
-            _free(C.cast(text, W.LPVOID))
+        return _sid_string(owner) == _SID and _private_dacl(descriptor)
     finally:
         _free(descriptor)

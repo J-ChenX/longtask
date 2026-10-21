@@ -12,6 +12,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import precompact_handoff as h
+import native_notice
 from longtask_state import StateError
 
 SOURCE = '11111111-1111-4111-8111-111111111111'
@@ -224,14 +225,25 @@ class HandoffTests(unittest.TestCase):
         self.assertEqual(self.host.calls, [])
 
     def test_early_warning_uses_last_request_ratio_and_never_dispatches(self):
-        event = {**self.event, 'hook_event_name': 'PostToolUse', 'transcript_path': '/synthetic/source.jsonl'}
-        self.snapshot['contextUsage'] = {'lastRequestTokens': 49, 'modelContextWindow': 100}
-        self.assertEqual(h.hook(event, self.engine), {})
-        self.snapshot['contextUsage']['lastRequestTokens'] = 50
-        result = h.hook(event, self.engine)
+        event = {**self.event, 'hook_event_name': 'PostToolUse'}
+        usage = {'lastRequestTokens': 49, 'modelContextWindow': 100}
+        with mock.patch.object(native_notice, 'read_context_usage', return_value=usage):
+            self.assertEqual(h.hook(event, self.engine), {})
+            usage['lastRequestTokens'] = 50
+            result = h.hook(event, self.engine)
         self.assertEqual(result['hookSpecificOutput']['hookEventName'], 'PostToolUse')
         self.assertIn('50%', result['hookSpecificOutput']['additionalContext'])
         self.assertEqual(self.host.calls, [])
+
+    def test_resume_command_preserves_executable_and_socket(self):
+        import shlex
+        self.host.codex = str(self.root / 'CLI with spaces' / 'codex')
+        self.host.socket = self.root / 'daemon socket'
+        receipt = self.engine.dispatch(self.event)
+        argv = shlex.split(self.engine.prompt(receipt).splitlines()[1])
+        self.assertEqual(argv[argv.index('--codex') + 1], self.host.codex)
+        self.assertEqual(argv[argv.index('--socket') + 1], str(self.host.socket))
+        self.assertEqual(argv[-3:], ['resume', '--source', SOURCE])
 
     def test_global_instruction_does_not_force_regular_task_into_skill(self):
         result = h.hook({**self.event, 'hook_event_name': 'UserPromptSubmit'}, self.engine)

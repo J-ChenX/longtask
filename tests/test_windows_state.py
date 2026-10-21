@@ -81,6 +81,28 @@ class WindowsStateTests(unittest.TestCase):
             for i, target in enumerate(targets)
         ], self.root)
 
+    def test_short_ancestor_path_supports_init_context_and_checkpoint(self):
+        ancestor = self.base / "LongAncestorForNativeCheckpoint"
+        ancestor.mkdir()
+        long_root = ancestor / "workspace"
+        long_root.mkdir()
+        buffer = ctypes.create_unicode_buffer(32768)
+        length = ctypes.windll.kernel32.GetShortPathNameW(str(ancestor), buffer, len(buffer))
+        self.assertTrue(0 < length < len(buffer))
+        short_ancestor = Path(buffer.value)
+        self.assertNotEqual(short_ancestor.name.casefold(), ancestor.name.casefold(),
+                            "native alias fixture requires DOS 8.3 creation on TEMP volume")
+        self.root = short_ancestor / "workspace"
+        self.assertNotEqual(self.root.absolute(), self.root.resolve())
+        current = self.init()
+        self.assertTrue((long_root / ".longtask/state.json").is_file())
+        restored = self.cli("context", "--resume-choice", "resume")
+        self.assertEqual(restored["binding"]["task_id"], current["task_id"])
+        saved = self.cli("checkpoint", "--expected-task-id", current["task_id"],
+                         "--expected-revision", str(current["revision"]))
+        self.assertEqual(saved["revision"], current["revision"] + 1)
+        self.assertTrue(self.cli("validate")["valid"])
+
     def test_active_write_sets_include_missing_paths_and_case_aliases(self):
         (self.root / "safe").mkdir()
         (self.root / "safe/file").write_bytes(b"data")

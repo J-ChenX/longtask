@@ -1,7 +1,7 @@
 {
   "name": "longtask",
   "version": "4.6.2",
-  "description": "面向 Codex 个人使用的可恢复、可审查跨会话编码编排",
+  "description": "面向 Codex 的长任务编排与会话连续性增强插件",
   "author": {
     "name": "Nix Jiang",
     "url": "https://github.com/J-ChenX"
@@ -20,8 +20,8 @@
   "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "Longtask",
-    "shortDescription": "可恢复、可审查的跨会话编码编排",
-    "longDescription": "在 Codex 中用版本绑定状态、工作包、批准和独立审查，安全推进跨多个上下文或会话的大型编码任务。",
+    "shortDescription": "长任务编排、会话连续性与核验交付",
+    "longDescription": "以 Skill 为入口，结合状态协议、运行时工具、可选宿主集成和验证机制，支持 Codex 编码任务持续推进、跨会话恢复与核验交付。全局接续需显式启用并核验宿主能力。",
     "developerName": "Nix Jiang",
     "category": "Developer Tools",
     "capabilities": [

@@ -47,6 +47,8 @@ REQUIRED_FILES = (
     "scripts/run_hook.ps1",
     "scripts/precompact_guard.py",
     "scripts/precompact_handoff.py",
+    "scripts/native_notice.py",
+    "tests/test_native_notice.py",
     "references/全局接续.md",
     "tests/test_precompact_handoff.py",
     "scripts/codex_sessions.py",

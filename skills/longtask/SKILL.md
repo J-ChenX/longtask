@@ -1,6 +1,6 @@
 ---
 name: longtask
-description: 编排跨上下文或独立验收包的编码任务，在授权内分工多窗口并递进交接；小改动、解释和普通审查不启用。
+description: 编排跨上下文或独立验收包的编码任务，增强会话连续性并核验交付；在授权内分工和接续，小改动、解释和普通审查不启用。
 license: MIT
 compatibility: Designed for Codex. Requires Python 3.14+; install the complete longtask plugin.
 metadata:

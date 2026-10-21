@@ -23,6 +23,7 @@ import uuid
 from codex_sessions import AdapterError, Proxy, Sessions, parse_json, thread_id
 from longtask_state import open_directory_path, StateError
 from session_permissions import read_source_snapshot, SourceError
+from native_notice import notice
 
 MAX_RECEIPT = 16384
 MAX_RECEIPTS = 4096
@@ -187,6 +188,7 @@ class Handoff:
 
     def prompt(self, receipt):
         command = shlex.join([sys.executable, str(self.script), '--store', str(self.receipts.path),
+                              '--codex', str(getattr(self.proxy, 'codex', 'codex')),
                               *(['--socket', str(self.proxy.socket)] if getattr(self.proxy, 'socket', None) else []),
                               'resume', '--source', receipt['source']])
         return (
@@ -324,28 +326,9 @@ def hook(event, handoff):
                     '这个来源聊天已有全局接续回执，状态=' + prior['phase'] + '，接收ID='
                     + str(prior['target']) + '。先核对原接收者，不在旧聊天恢复同范围写入，'
                     '不重放创建或提示词；未知结果必须先定位原操作。用户明确更换目标时另行核对写集。'}}
-        return {'hookSpecificOutput': {'hookEventName': 'UserPromptSubmit', 'additionalContext':
-                '用户已显式启用全局禁压缩接续。所有未完成任务均在上下文余量充足时按安全片段提前交接；'
-                '常规任务使用轻量核心结果及原聊天定位，有活动longtask检查点时消费其完整合同。'
-                '原目标内自动创建接续聊天和发送必要接续指令已获选择，不扩大原业务权限。'
-                '停止旧范围写入后创建新聊天，确认接收者实际开始下一动作；保存材料或创建回执不是接管。'
-                '可立即完成的小任务直接完成。不要等禁压缩门触发才整理；创建/接管失败须明确报告缺口。'}}
+        return notice(event)
     if event.get('hook_event_name') == 'PostToolUse':
-        try:
-            snapshot = read_source_snapshot(event.get('transcript_path'), thread_id(event.get('session_id')),
-                                            handoff.root, include_context=True)
-            usage = snapshot['contextUsage']
-            if usage is None or usage['lastRequestTokens'] * 2 < usage['modelContextWindow']:
-                return {}
-            return {'hookSpecificOutput': {'hookEventName': 'PostToolUse', 'additionalContext':
-                    '全局接续提前预警：宿主记录的最近请求用量已达到上下文窗口的50%。'
-                    '这不是实时精确剩余量，后续工具输出还会增加占用。现在只做最近安全出口的有界收尾，'
-                    '不再开启大包或批量读取。若仍有未完成工作，优先用当前宿主原生工具自动建立全新接续聊天，'
-                    '仅传目标、核心结果、必要定位、剩余验收与授权来源，保留未提交改动和失败/未运行检查。'
-                    '停止旧范围写入并核对后台写入者；确认真实接收ID及下一具体动作后结束旧会话实施。'
-                    '缺少必要工具或接管未确认时明确报告，不宣称已经交接。可立即完成的小任务直接收尾。'}}
-        except (AdapterError, SourceError, OSError, ValueError, TypeError):
-            return {'systemMessage': '全局接续用量预警不可用；禁压缩门仍单独适用。'}
+        return notice(event)
     if event.get('hook_event_name') != 'PreCompact':
         return {}
     receipt, error = None, None
